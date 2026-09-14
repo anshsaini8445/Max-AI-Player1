@@ -5,12 +5,13 @@
     android:layout_height="match_parent"
     android:background="#0A0B10">
 
-    <!-- Top Action Bar (PLAYit Exact) -->
+    <!-- Top Bar (Sketch ke anusar) -->
     <RelativeLayout
         android:id="@+id/topBar"
         android:layout_width="match_parent"
         android:layout_height="56dp"
-        android:paddingHorizontal="16dp">
+        android:paddingHorizontal="16dp"
+        android:background="#1B1C26">
 
         <TextView
             android:layout_width="wrap_content"
@@ -28,14 +29,16 @@
             android:layout_centerVertical="true"
             android:orientation="horizontal">
 
+            <!-- Reward Icon -->
             <ImageButton
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:layout_marginEnd="16dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_save"
-                app:tint="#FFFFFF" />
+                android:src="@android:drawable/btn_star"
+                app:tint="#FFD700" />
 
+            <!-- Search Icon -->
             <ImageButton
                 android:layout_width="32dp"
                 android:layout_height="32dp"
@@ -45,15 +48,60 @@
         </LinearLayout>
     </RelativeLayout>
 
+    <!-- History Block (Sketch ke anusar) -->
+    <LinearLayout
+        android:id="@+id/historyBlock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/topBar"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:background="#1B1C26">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="History"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none">
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <!-- History Item 1 -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="140dp"
+                    android:layout_height="80dp"
+                    android:layout_marginEnd="12dp"
+                    app:cardBackgroundColor="#2A2A30"
+                    app:cardCornerRadius="8dp"/>
+                <!-- History Item 2 -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="140dp"
+                    android:layout_height="80dp"
+                    app:cardBackgroundColor="#2A2A30"
+                    app:cardCornerRadius="8dp"/>
+            </LinearLayout>
+        </HorizontalScrollView>
+    </LinearLayout>
+
     <!-- Tabs (Video, Folder, Playlist) -->
     <LinearLayout
         android:id="@+id/tabLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/topBar"
+        android:layout_below="@id/historyBlock"
         android:orientation="horizontal"
         android:paddingHorizontal="16dp"
-        android:paddingBottom="12dp">
+        android:paddingVertical="12dp"
+        android:background="#0A0B10">
 
         <TextView
             android:id="@+id/tabVideo"
@@ -88,11 +136,13 @@
         <ImageButton
             android:layout_width="24dp"
             android:layout_height="24dp"
+            android:layout_marginEnd="8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_sort_by_size"
             app:tint="#AAAAAA" />
     </LinearLayout>
 
+    <!-- Main List -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
@@ -102,12 +152,13 @@
         android:clipToPadding="false"
         android:paddingBottom="8dp" />
 
+    <!-- Bottom Navigation -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:background="#0A0B10"
+        android:background="#1B1C26"
         app:itemIconTint="@color/nav_item_color"
         app:itemTextColor="@color/nav_item_color"
         app:menu="@menu/bottom_nav_menu" />
