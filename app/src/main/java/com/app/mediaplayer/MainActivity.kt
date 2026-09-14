@@ -3,6 +3,7 @@ package com.app.mediaplayer
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
@@ -10,6 +11,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -19,7 +21,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.io.File
 
@@ -28,19 +29,31 @@ class MainActivity : AppCompatActivity() {
     private val videoList = ArrayList<MediaItem>()
     private val audioList = ArrayList<MediaItem>()
     private lateinit var recyclerView: RecyclerView
-    private var bottomNav: BottomNavigationView? = null
     
     private var tabVideo: TextView? = null
     private var tabFolder: TextView? = null
     private var historyBlock: LinearLayout? = null
     private var tabLayout: LinearLayout? = null
-    private var searchLayout: LinearLayout? = null
+    private var bottomSearchContainer: LinearLayout? = null
     private var meLayout: ScrollView? = null
     private var etSearch: EditText? = null
+
+    // 4 Bottom Tab Views
+    private var navVideoIcon: ImageView? = null
+    private var navVideoText: TextView? = null
+    private var navMusicIcon: ImageView? = null
+    private var navMusicText: TextView? = null
+    private var navSearchIcon: ImageView? = null
+    private var navSearchText: TextView? = null
+    private var navMeIcon: ImageView? = null
+    private var navMeText: TextView? = null
 
     private var isShowingVideos = true 
     private var isFolderView = false 
     private var isSearching = false
+
+    private val activeColor = Color.parseColor("#00E5FF")
+    private val inactiveColor = Color.parseColor("#8E8E9F")
 
     companion object {
         var currentMediaList = ArrayList<MediaItem>()
@@ -52,76 +65,99 @@ class MainActivity : AppCompatActivity() {
             setContentView(R.layout.activity_main)
 
             recyclerView = findViewById(R.id.recyclerView)
-            bottomNav = findViewById(R.id.bottomNav)
             tabVideo = findViewById(R.id.tabVideo)
             tabFolder = findViewById(R.id.tabFolder)
             historyBlock = findViewById(R.id.historyBlock)
             tabLayout = findViewById(R.id.tabLayout)
-            searchLayout = findViewById(R.id.searchLayout)
+            bottomSearchContainer = findViewById(R.id.bottomSearchContainer)
             meLayout = findViewById(R.id.meLayout)
             etSearch = findViewById(R.id.etSearch)
+
+            // Bottom Nav Elements
+            navVideoIcon = findViewById(R.id.navVideoIcon)
+            navVideoText = findViewById(R.id.navVideoText)
+            navMusicIcon = findViewById(R.id.navMusicIcon)
+            navMusicText = findViewById(R.id.navMusicText)
+            navSearchIcon = findViewById(R.id.navSearchIcon)
+            navSearchText = findViewById(R.id.navSearchText)
+            navMeIcon = findViewById(R.id.navMeIcon)
+            navMeText = findViewById(R.id.navMeText)
 
             recyclerView.layoutManager = LinearLayoutManager(this)
 
             setupTopTabs()
+            setupCustomBottomTabs()
             setupSearch()
             setupMeFeatureClicks()
 
-            bottomNav?.setOnItemSelectedListener { item ->
-                try {
-                    val searchId = resources.getIdentifier("nav_search", "id", packageName)
-                    
-                    if (item.itemId == R.id.nav_video || item.title?.toString()?.contains("Video") == true) {
-                        isSearching = false
-                        searchLayout?.visibility = View.GONE
-                        meLayout?.visibility = View.GONE
-                        recyclerView.visibility = View.VISIBLE
-                        historyBlock?.visibility = View.VISIBLE
-                        tabLayout?.visibility = View.VISIBLE
-                        isShowingVideos = true
-                        isFolderView = false
-                        resetTabsToDefault()
-                        updateList()
-                        true
-                    } else if (item.itemId == R.id.nav_music || item.title?.toString()?.contains("Music") == true) {
-                        isSearching = false
-                        searchLayout?.visibility = View.GONE
-                        meLayout?.visibility = View.GONE
-                        recyclerView.visibility = View.VISIBLE
-                        historyBlock?.visibility = View.VISIBLE
-                        tabLayout?.visibility = View.VISIBLE
-                        isShowingVideos = false
-                        isFolderView = false
-                        resetTabsToDefault()
-                        updateList()
-                        true
-                    } else if (item.itemId == searchId || item.title?.toString()?.contains("Search") == true) {
-                        isSearching = true
-                        meLayout?.visibility = View.GONE
-                        searchLayout?.visibility = View.VISIBLE
-                        recyclerView.visibility = View.VISIBLE
-                        historyBlock?.visibility = View.GONE
-                        tabLayout?.visibility = View.GONE
-                        filterList(etSearch?.text?.toString() ?: "")
-                        true
-                    } else if (item.itemId == R.id.nav_settings || item.title?.toString()?.contains("Me") == true) {
-                        isSearching = false
-                        searchLayout?.visibility = View.GONE
-                        historyBlock?.visibility = View.GONE
-                        tabLayout?.visibility = View.GONE
-                        recyclerView.visibility = View.GONE
-                        meLayout?.visibility = View.VISIBLE
-                        true
-                    } else {
-                        false
-                    }
-                } catch (e: Exception) {
-                    false
-                }
-            }
-
             checkAndRequestPermissions()
         } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    private fun setupCustomBottomTabs() {
+        findViewById<View>(R.id.navVideoTab)?.setOnClickListener {
+            highlightBottomTab(0)
+            isSearching = false
+            bottomSearchContainer?.visibility = View.GONE
+            meLayout?.visibility = View.GONE
+            recyclerView.visibility = View.VISIBLE
+            historyBlock?.visibility = View.VISIBLE
+            tabLayout?.visibility = View.VISIBLE
+            isShowingVideos = true
+            isFolderView = false
+            resetTopTabs()
+            updateList()
+        }
+
+        findViewById<View>(R.id.navMusicTab)?.setOnClickListener {
+            highlightBottomTab(1)
+            isSearching = false
+            bottomSearchContainer?.visibility = View.GONE
+            meLayout?.visibility = View.GONE
+            recyclerView.visibility = View.VISIBLE
+            historyBlock?.visibility = View.VISIBLE
+            tabLayout?.visibility = View.VISIBLE
+            isShowingVideos = false
+            isFolderView = false
+            resetTopTabs()
+            updateList()
+        }
+
+        findViewById<View>(R.id.navSearchTab)?.setOnClickListener {
+            highlightBottomTab(2)
+            isSearching = true
+            meLayout?.visibility = View.GONE
+            bottomSearchContainer?.visibility = View.VISIBLE
+            recyclerView.visibility = View.VISIBLE
+            historyBlock?.visibility = View.GONE
+            tabLayout?.visibility = View.GONE
+            filterList(etSearch?.text?.toString() ?: "")
+        }
+
+        findViewById<View>(R.id.navMeTab)?.setOnClickListener {
+            highlightBottomTab(3)
+            isSearching = false
+            bottomSearchContainer?.visibility = View.GONE
+            historyBlock?.visibility = View.GONE
+            tabLayout?.visibility = View.GONE
+            recyclerView.visibility = View.GONE
+            meLayout?.visibility = View.VISIBLE
+        }
+    }
+
+    private fun highlightBottomTab(index: Int) {
+        val icons = listOf(navVideoIcon, navMusicIcon, navSearchIcon, navMeIcon)
+        val texts = listOf(navVideoText, navMusicText, navSearchText, navMeText)
+
+        for (i in 0..3) {
+            if (i == index) {
+                icons[i]?.setColorFilter(activeColor)
+                texts[i]?.setTextColor(activeColor)
+            } else {
+                icons[i]?.setColorFilter(inactiveColor)
+                texts[i]?.setTextColor(inactiveColor)
+            }
+        }
     }
 
     private fun setupMeFeatureClicks() {
@@ -134,7 +170,7 @@ class MainActivity : AppCompatActivity() {
             findViewById<View>(R.id.btnMeTheme)?.setOnClickListener { Toast.makeText(this, "Themes", Toast.LENGTH_SHORT).show() }
             findViewById<View>(R.id.btnMeSettings)?.setOnClickListener { Toast.makeText(this, "Settings", Toast.LENGTH_SHORT).show() }
             findViewById<View>(R.id.btnMeHelp)?.setOnClickListener { Toast.makeText(this, "Help Center", Toast.LENGTH_SHORT).show() }
-            findViewById<View>(R.id.btnMeRate)?.setOnClickListener { Toast.makeText(this, "Thanks for rating!", Toast.LENGTH_SHORT).show() }
+            findViewById<View>(R.id.btnMeRate)?.setOnClickListener { Toast.makeText(this, "Thanks for rating us!", Toast.LENGTH_SHORT).show() }
         } catch (e: Exception) { e.printStackTrace() }
     }
 
@@ -153,7 +189,7 @@ class MainActivity : AppCompatActivity() {
             val combinedList = ArrayList<MediaItem>()
             combinedList.addAll(videoList)
             combinedList.addAll(audioList)
-            
+
             val filtered = if (query.trim().isEmpty()) {
                 combinedList
             } else {
@@ -163,24 +199,14 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) { e.printStackTrace() }
     }
 
-    private fun resetTabsToDefault() {
+    private fun resetTopTabs() {
         try {
-            val activeColor = android.graphics.Color.parseColor("#00E5FF")
-            val inactiveColor = android.graphics.Color.parseColor("#AAAAAA")
-            if (isShowingVideos) {
-                tabVideo?.setTextColor(activeColor)
-                tabFolder?.setTextColor(inactiveColor)
-            } else {
-                tabVideo?.setTextColor(inactiveColor)
-                tabFolder?.setTextColor(activeColor)
-            }
+            tabVideo?.setTextColor(activeColor)
+            tabFolder?.setTextColor(inactiveColor)
         } catch (e: Exception) { e.printStackTrace() }
     }
 
     private fun setupTopTabs() {
-        val activeColor = android.graphics.Color.parseColor("#00E5FF")
-        val inactiveColor = android.graphics.Color.parseColor("#AAAAAA")
-
         tabVideo?.setOnClickListener {
             if (isSearching) return@setOnClickListener
             isFolderView = false
@@ -248,7 +274,7 @@ class MainActivity : AppCompatActivity() {
                     audioList.add(MediaItem(cursor.getLong(idCol), cursor.getString(titleCol) ?: "Unknown", cursor.getString(pathCol), cursor.getLong(durationCol), false))
                 }
             }
-            bottomNav?.selectedItemId = R.id.nav_video
+            updateList()
         } catch (e: Exception) { e.printStackTrace() }
     }
 
@@ -268,8 +294,8 @@ class MainActivity : AppCompatActivity() {
                 recyclerView.layoutManager = LinearLayoutManager(this)
                 recyclerView.adapter = FolderAdapter(folders) { clickedFolder ->
                     isFolderView = false
-                    tabFolder?.setTextColor(android.graphics.Color.parseColor("#AAAAAA"))
-                    tabVideo?.setTextColor(android.graphics.Color.parseColor("#00E5FF"))
+                    tabFolder?.setTextColor(inactiveColor)
+                    tabVideo?.setTextColor(activeColor)
                     showItemsInFolder(clickedFolder.mediaItems)
                 }
             } else {
