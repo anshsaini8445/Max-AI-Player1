@@ -11,6 +11,7 @@ import android.text.TextWatcher
 import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -34,6 +35,7 @@ class MainActivity : AppCompatActivity() {
     private var historyBlock: LinearLayout? = null
     private var tabLayout: LinearLayout? = null
     private var searchLayout: LinearLayout? = null
+    private var meLayout: ScrollView? = null
     private var etSearch: EditText? = null
 
     private var isShowingVideos = true 
@@ -56,12 +58,14 @@ class MainActivity : AppCompatActivity() {
             historyBlock = findViewById(R.id.historyBlock)
             tabLayout = findViewById(R.id.tabLayout)
             searchLayout = findViewById(R.id.searchLayout)
+            meLayout = findViewById(R.id.meLayout)
             etSearch = findViewById(R.id.etSearch)
 
             recyclerView.layoutManager = LinearLayoutManager(this)
 
             setupTopTabs()
             setupSearch()
+            setupMeFeatureClicks()
 
             bottomNav?.setOnItemSelectedListener { item ->
                 try {
@@ -70,6 +74,8 @@ class MainActivity : AppCompatActivity() {
                     if (item.itemId == R.id.nav_video || item.title?.toString()?.contains("Video") == true) {
                         isSearching = false
                         searchLayout?.visibility = View.GONE
+                        meLayout?.visibility = View.GONE
+                        recyclerView.visibility = View.VISIBLE
                         historyBlock?.visibility = View.VISIBLE
                         tabLayout?.visibility = View.VISIBLE
                         isShowingVideos = true
@@ -80,6 +86,8 @@ class MainActivity : AppCompatActivity() {
                     } else if (item.itemId == R.id.nav_music || item.title?.toString()?.contains("Music") == true) {
                         isSearching = false
                         searchLayout?.visibility = View.GONE
+                        meLayout?.visibility = View.GONE
+                        recyclerView.visibility = View.VISIBLE
                         historyBlock?.visibility = View.VISIBLE
                         tabLayout?.visibility = View.VISIBLE
                         isShowingVideos = false
@@ -89,14 +97,23 @@ class MainActivity : AppCompatActivity() {
                         true
                     } else if (item.itemId == searchId || item.title?.toString()?.contains("Search") == true) {
                         isSearching = true
+                        meLayout?.visibility = View.GONE
                         searchLayout?.visibility = View.VISIBLE
+                        recyclerView.visibility = View.VISIBLE
                         historyBlock?.visibility = View.GONE
                         tabLayout?.visibility = View.GONE
                         filterList(etSearch?.text?.toString() ?: "")
                         true
-                    } else {
-                        Toast.makeText(this, "Opening Me Settings...", Toast.LENGTH_SHORT).show()
+                    } else if (item.itemId == R.id.nav_settings || item.title?.toString()?.contains("Me") == true) {
+                        isSearching = false
+                        searchLayout?.visibility = View.GONE
+                        historyBlock?.visibility = View.GONE
+                        tabLayout?.visibility = View.GONE
+                        recyclerView.visibility = View.GONE
+                        meLayout?.visibility = View.VISIBLE
                         true
+                    } else {
+                        false
                     }
                 } catch (e: Exception) {
                     false
@@ -104,6 +121,20 @@ class MainActivity : AppCompatActivity() {
             }
 
             checkAndRequestPermissions()
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    private fun setupMeFeatureClicks() {
+        try {
+            findViewById<View>(R.id.btnMeTransfer)?.setOnClickListener { Toast.makeText(this, "File Transfer", Toast.LENGTH_SHORT).show() }
+            findViewById<View>(R.id.btnMeVault)?.setOnClickListener { Toast.makeText(this, "Privacy Vault Locked", Toast.LENGTH_SHORT).show() }
+            findViewById<View>(R.id.btnMePlaylists)?.setOnClickListener { Toast.makeText(this, "My Playlists", Toast.LENGTH_SHORT).show() }
+            findViewById<View>(R.id.btnMeHistory)?.setOnClickListener { Toast.makeText(this, "Watch History", Toast.LENGTH_SHORT).show() }
+            findViewById<View>(R.id.btnMeBin)?.setOnClickListener { Toast.makeText(this, "Recycle Bin", Toast.LENGTH_SHORT).show() }
+            findViewById<View>(R.id.btnMeTheme)?.setOnClickListener { Toast.makeText(this, "Theme Settings", Toast.LENGTH_SHORT).show() }
+            findViewById<View>(R.id.btnMeSettings)?.setOnClickListener { Toast.makeText(this, "General Settings", Toast.LENGTH_SHORT).show() }
+            findViewById<View>(R.id.btnMeHelp)?.setOnClickListener { Toast.makeText(this, "Help Center", Toast.LENGTH_SHORT).show() }
+            findViewById<View>(R.id.btnMeRate)?.setOnClickListener { Toast.makeText(this, "Thanks for rating us 5 Stars!", Toast.LENGTH_SHORT).show() }
         } catch (e: Exception) { e.printStackTrace() }
     }
 
