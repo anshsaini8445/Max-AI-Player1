@@ -44,8 +44,6 @@ class AudioPlayerActivity : AppCompatActivity() {
     private var isSeeking = false
     private var seekPosition: Long = 0
     private var totalDuration: Long = 0
-    
-    // Ghoomti hui CD ka animation
     private var rotationAnimator: ObjectAnimator? = null
 
     private val handler = Handler(Looper.getMainLooper())
@@ -64,7 +62,6 @@ class AudioPlayerActivity : AppCompatActivity() {
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
         try {
             setContentView(R.layout.activity_audio_player)
 
@@ -75,15 +72,12 @@ class AudioPlayerActivity : AppCompatActivity() {
             cardPlayPause = findViewById(R.id.btnAudioPlayPause)
             imgAlbumArt = findViewById(R.id.imgAlbumArt)
             
-            // Naye gol button ke andar ki photo nikalna
             if (cardPlayPause != null && cardPlayPause!!.childCount > 0) {
                 imgPlayPauseIcon = cardPlayPause!!.getChildAt(0) as? ImageView
             }
 
             findViewById<ImageButton>(R.id.btnBackAudio)?.setOnClickListener { finish() }
-            findViewById<ImageButton>(R.id.btnEqAudio)?.setOnClickListener { startActivity(Intent(this, EqualizerActivity::class.java)) }
             
-            // CD Rotation Setup (10 second mein 1 chakkar)
             imgAlbumArt?.let {
                 rotationAnimator = ObjectAnimator.ofFloat(it, View.ROTATION, 0f, 360f).apply {
                     duration = 10000 
@@ -93,10 +87,9 @@ class AudioPlayerActivity : AppCompatActivity() {
             }
 
             setupSwipeGestures()
-            
         } catch (e: Exception) {
             e.printStackTrace()
-            finish() // Error aane par chup-chaap bahar kar dega, crash nahi hoga
+            finish() 
         }
     }
 
@@ -111,9 +104,7 @@ class AudioPlayerActivity : AppCompatActivity() {
                 player = mediaController
                 setupPlayer()
             }, ContextCompat.getMainExecutor(this))
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        } catch (e: Exception) { e.printStackTrace() }
     }
 
     private fun setupPlayer() {
@@ -123,10 +114,10 @@ class AudioPlayerActivity : AppCompatActivity() {
 
             if (mediaList.isNotEmpty()) {
                 if (player?.mediaItemCount != mediaList.size) {
-                    val exoItems = mediaList.map { 
+                    val exoItems = mediaList.map { item ->
                         ExoMediaItem.Builder()
-                            .setUri(it.path)
-                            .setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).build())
+                            .setUri(item.path)
+                            .setMediaMetadata(MediaMetadata.Builder().setTitle(item.title).build())
                             .build() 
                     }
                     player?.setMediaItems(exoItems, startIndex, 0L)
@@ -136,22 +127,18 @@ class AudioPlayerActivity : AppCompatActivity() {
                     player?.seekTo(startIndex, 0L)
                     player?.play()
                 }
-                
-                // Gaane ki asli photo lagana
                 setAlbumArt(mediaList[startIndex].path)
             }
 
             player?.addListener(object : Player.Listener {
                 override fun onMediaItemTransition(mediaItem: ExoMediaItem?, reason: Int) {
                     tvTitle?.text = mediaItem?.mediaMetadata?.title?.toString() ?: "Unknown Audio"
-                    
                     val currentIndex = player?.currentMediaItemIndex ?: 0
-                    if(currentIndex in mediaList.indices) {
+                    if (mediaList.isNotEmpty() && currentIndex >= 0 && currentIndex < mediaList.size) {
                         setAlbumArt(mediaList[currentIndex].path)
                     }
-
-                    player?.let {
-                        totalDuration = it.duration
+                    player?.let { p ->
+                        totalDuration = p.duration
                         if(totalDuration > 0) {
                             seekBar?.max = totalDuration.toInt()
                             tvTotal?.text = formatTime(totalDuration)
@@ -181,13 +168,9 @@ class AudioPlayerActivity : AppCompatActivity() {
 
             seekBar?.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    if (fromUser) {
-                        tvCurrent?.text = formatTime(progress.toLong())
-                    }
+                    if (fromUser) tvCurrent?.text = formatTime(progress.toLong())
                 }
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {
-                    isSeeking = true
-                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) { isSeeking = true }
                 override fun onStopTrackingTouch(seekBar: SeekBar?) {
                     isSeeking = false
                     seekBar?.let { player?.seekTo(it.progress.toLong()) }
@@ -221,16 +204,13 @@ class AudioPlayerActivity : AppCompatActivity() {
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
                 if (e1 == null || totalDuration <= 0) return false
-
                 if (abs(distanceX) > abs(distanceY)) {
                     isSeeking = true
                     val change = (distanceX * -100).toLong() 
                     seekPosition = player?.currentPosition ?: 0
                     seekPosition += change
-                    
                     if (seekPosition < 0) seekPosition = 0
                     if (seekPosition > totalDuration) seekPosition = totalDuration
-                    
                     tvCurrent?.text = formatTime(seekPosition)
                     seekBar?.progress = seekPosition.toInt()
                     return true
@@ -238,7 +218,6 @@ class AudioPlayerActivity : AppCompatActivity() {
                 return false
             }
         })
-
         findViewById<CardView>(R.id.cardAlbumArt)?.setOnTouchListener { _, event ->
             gestureDetector.onTouchEvent(event)
             if (event.action == MotionEvent.ACTION_UP && isSeeking) {
