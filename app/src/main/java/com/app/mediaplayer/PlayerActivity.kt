@@ -8,12 +8,12 @@ import android.view.WindowManager
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import androidx.media3.common.MediaItem as ExoMediaItem
 
 class PlayerActivity : AppCompatActivity() {
 
@@ -22,7 +22,6 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
         try {
             window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
@@ -32,7 +31,6 @@ class PlayerActivity : AppCompatActivity() {
 
             initializePlayer()
             setupUIButtons()
-            
         } catch (e: Exception) {
             e.printStackTrace()
             finish() 
@@ -46,10 +44,9 @@ class PlayerActivity : AppCompatActivity() {
             
             playerView.findViewById<View>(R.id.btnAudioOnly)?.setOnClickListener {
                 Toast.makeText(this, "Playing in Audio Mode", Toast.LENGTH_SHORT).show()
-                val intent = Intent(this, AudioPlayerActivity::class.java).apply { 
+                startActivity(Intent(this, AudioPlayerActivity::class.java).apply { 
                     putExtra("START_INDEX", intent.getIntExtra("START_INDEX", 0)) 
-                }
-                startActivity(intent)
+                })
                 finish()
             }
 
@@ -88,7 +85,7 @@ class PlayerActivity : AppCompatActivity() {
 
         if (mediaList.isNotEmpty()) {
             val exoItems = mediaList.map { 
-                MediaItem.Builder()
+                ExoMediaItem.Builder()
                     .setUri(it.path)
                     .setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).build())
                     .build() 
@@ -100,7 +97,7 @@ class PlayerActivity : AppCompatActivity() {
 
         val tvTitle = playerView.findViewById<TextView>(R.id.tvVideoTitle)
         player?.addListener(object : Player.Listener {
-            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            override fun onMediaItemTransition(mediaItem: ExoMediaItem?, reason: Int) {
                 tvTitle?.text = mediaItem?.mediaMetadata?.title?.toString() ?: "Unknown Video"
             }
         })
