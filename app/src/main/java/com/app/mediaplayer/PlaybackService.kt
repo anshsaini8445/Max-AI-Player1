@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
+import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -14,12 +15,13 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp3.Mp3Extractor
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
-@UnstableApi
+@OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
@@ -38,24 +40,24 @@ class PlaybackService : MediaSessionService() {
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .build()
 
-        // Audio Codecs & Software Decoders for Studio Master Tracks (FLAC, ALAC, Opus, MP3)
         val renderersFactory = DefaultRenderersFactory(this).apply {
             setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
             setEnableDecoderFallback(true)
         }
 
-        // 126k, 128k, 320k Constant & Variable Bitrate Fix
         val extractorsFactory = DefaultExtractorsFactory().apply {
             setConstantBitrateSeekingEnabled(true)
             setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING)
         }
+
+        val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
 
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(10000, 30000, 500, 1000)
             .build()
 
         player = ExoPlayer.Builder(this, renderersFactory)
-            .setExtractorsFactory(extractorsFactory)
+            .setMediaSourceFactory(mediaSourceFactory)
             .setLoadControl(loadControl)
             .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
