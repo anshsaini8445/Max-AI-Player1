@@ -14,6 +14,7 @@ import android.view.WindowManager
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
+import androidx.annotation.OptIn
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.C
@@ -28,6 +29,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp3.Mp3Extractor
@@ -38,7 +40,7 @@ import androidx.media3.ui.PlayerView
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.io.File
 
-@UnstableApi
+@OptIn(UnstableApi::class)
 class PlayerActivity : AppCompatActivity() {
 
     private var player: ExoPlayer? = null
@@ -70,15 +72,13 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun initializeSuperEnginePlayer() {
-        // 1. All Video & Audio Codec Engines (8K/4K/HEVC/AV1 + Software Fallback)
         val renderersFactory = DefaultRenderersFactory(this).apply {
             setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
-            setEnableDecoderFallback(true) // 8K/4K hardware fail hone par software decoder sambhalega
+            setEnableDecoderFallback(true)
         }
 
-        // 2. All Extractors + MX Player Feature (आधी अधूरी फाइल और .crdownload सपोर्ट)
         val extractorsFactory = DefaultExtractorsFactory().apply {
-            setConstantBitrateSeekingEnabled(true) // Constant & Variable Bitrate MP3/Audio fix
+            setConstantBitrateSeekingEnabled(true)
             setMp4ExtractorFlags(
                 Mp4Extractor.FLAG_WORKAROUND_IGNORE_EDIT_LISTS or
                 Mp4Extractor.FLAG_READ_SEF_DATA
@@ -87,19 +87,15 @@ class PlayerActivity : AppCompatActivity() {
             setTsExtractorMode(TsExtractor.MODE_SINGLE_PMT)
         }
 
-        // 3. Ultra Fast & Smooth Buffer Load Control (144p se lekar 8K bina ruke chale)
+        val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
+
         val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(
-                15000, // 15s min buffer
-                50000, // 50s max buffer
-                1000,  // 1s instant play buffer (बिना लोडिंग के तुरंत स्टार्ट)
-                2000   // 2s rebuffer
-            )
+            .setBufferDurationsMs(15000, 50000, 1000, 2000)
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
 
         player = ExoPlayer.Builder(this, renderersFactory)
-            .setExtractorsFactory(extractorsFactory)
+            .setMediaSourceFactory(mediaSourceFactory)
             .setLoadControl(loadControl)
             .build()
 
@@ -112,7 +108,6 @@ class PlayerActivity : AppCompatActivity() {
             val dataSourceFactory = DefaultDataSource.Factory(this)
             val progressiveMediaSourceFactory = ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory)
 
-            // Chrome adhi download video (.crdownload) aur normal video media build
             val mediaSources = mediaList.map { item ->
                 val uri = Uri.fromFile(File(item.path))
                 val mime = when {
@@ -120,7 +115,7 @@ class PlayerActivity : AppCompatActivity() {
                         if (item.path.contains("mp3", true) || item.path.contains("audio", true)) {
                             MimeTypes.AUDIO_UNKNOWN
                         } else {
-                            MimeTypes.VIDEO_MP4 // Chrome Incomplete files bypass
+                            MimeTypes.VIDEO_MP4
                         }
                     }
                     item.path.endsWith(".mkv", true) -> MimeTypes.VIDEO_MATROSKA
@@ -150,7 +145,6 @@ class PlayerActivity : AppCompatActivity() {
                 tvTitle?.isSelected = true
             }
 
-            // आधी अधूरी फाइल खत्म होने पर क्रैश से बचाने के लिए सेफ हैंडलर
             override fun onPlayerError(error: PlaybackException) {
                 if (error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED ||
                     error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED) {
