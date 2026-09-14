@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.app.mediaplayer">
 
+    <!-- All Storage, Background & Playback Permissions -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
@@ -11,12 +14,13 @@
 
     <application
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@android:drawable/sym_def_app_icon"
         android:label="MX Player"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar">
+        android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
+        tools:targetApi="34">
 
+        <!-- 1. Splash Screen: MX Player Video Music Games branding -->
         <activity
             android:name=".SplashActivity"
             android:exported="true"
@@ -27,29 +31,35 @@
             </intent-filter>
         </activity>
 
+        <!-- 2. Main Screen: 4 Bottom Tabs (Video, Music, Search, Me) + Incomplete Chrome Scanner -->
         <activity
             android:name=".MainActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustPan" />
 
+        <!-- 3. Super Video Player: 8K/4K/HEVC, PiP, Controls, Partial Chrome Playback -->
         <activity
             android:name=".PlayerActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:exported="false"
             android:supportsPictureInPicture="true" />
 
+        <!-- 4. Rotating Vinyl CD Music Player -->
         <activity
             android:name=".AudioPlayerActivity"
             android:exported="false" />
 
+        <!-- 5. Monthly & Yearly VIP Pass Screen -->
         <activity
             android:name=".SubscriptionActivity"
             android:exported="false" />
 
+        <!-- 6. Background Audio Playback Engine -->
         <service
             android:name=".PlaybackService"
             android:exported="false"
-            android:foregroundServiceType="mediaPlayback">
+            android:foregroundServiceType="mediaPlayback"
+            tools:ignore="ForegroundServicePermission">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
