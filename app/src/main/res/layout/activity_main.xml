@@ -129,7 +129,6 @@
         android:clipToPadding="false"
         android:paddingBottom="8dp" />
 
-    <!-- NAYA ME SECTION (Aapke Sketch Ke Hisab Se) -->
     <ScrollView
         android:id="@+id/meLayout"
         android:layout_width="match_parent"
@@ -144,49 +143,27 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:padding="20dp">
-
-            <!-- Top 3 Features: Transfer, Private, Playlists -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:weightSum="3"
                 android:layout_marginBottom="24dp">
-                <LinearLayout
-                    android:id="@+id/btnMeTransfer"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical">
+                <LinearLayout android:id="@+id/btnMeTransfer" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
                     <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_menu_share" app:tint="#00E5FF"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Transfer" android:textColor="#FFF" android:layout_marginTop="8dp"/>
                 </LinearLayout>
-                <LinearLayout
-                    android:id="@+id/btnMeVault"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical">
+                <LinearLayout android:id="@+id/btnMeVault" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
                     <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_secure" app:tint="#00E5FF"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Private" android:textColor="#FFF" android:layout_marginTop="8dp"/>
                 </LinearLayout>
-                <LinearLayout
-                    android:id="@+id/btnMePlaylists"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical">
+                <LinearLayout android:id="@+id/btnMePlaylists" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
                     <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_menu_sort_by_size" app:tint="#00E5FF"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Playlists" android:textColor="#FFF" android:layout_marginTop="8dp"/>
                 </LinearLayout>
             </LinearLayout>
 
             <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#22FFFFFF" android:layout_marginBottom="16dp"/>
-
-            <!-- List Options (History, Bin, Theme, Settings) -->
             <TextView android:id="@+id/btnMeHistory" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="🕒  History" android:textColor="#FFF" android:textSize="18sp" android:paddingVertical="16dp"/>
             <TextView android:id="@+id/btnMeBin" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="🗑️  Recycle Bin" android:textColor="#FFF" android:textSize="18sp" android:paddingVertical="16dp"/>
             <TextView android:id="@+id/btnMeTheme" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="🎨  Theme" android:textColor="#FFF" android:textSize="18sp" android:paddingVertical="16dp"/>
@@ -224,5 +201,7 @@
         android:background="#1B1C26"
         app:itemIconTint="@color/nav_item_color"
         app:itemTextColor="@color/nav_item_color"
+        app:labelVisibilityMode="labeled" 
         app:menu="@menu/bottom_nav_menu" />
+
 </RelativeLayout>
