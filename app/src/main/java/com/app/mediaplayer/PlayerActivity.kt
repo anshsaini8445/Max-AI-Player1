@@ -1,15 +1,12 @@
 package com.app.mediaplayer
 
-import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.os.Bundle
-import android.view.GestureDetector
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.ImageButton
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -17,18 +14,11 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import kotlin.math.abs
 
 class PlayerActivity : AppCompatActivity() {
 
     private var player: ExoPlayer? = null
     private lateinit var playerView: PlayerView
-    private var tvNanoOverlay: TextView? = null
-    private lateinit var gestureDetector: GestureDetector
-
-    private var isSeeking = false
-    private var seekPosition: Long = 0
-    private var totalDuration: Long = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,19 +30,8 @@ class PlayerActivity : AppCompatActivity() {
             setContentView(R.layout.activity_player)
             playerView = findViewById(R.id.playerView)
 
-            val btnBack = playerView.findViewById<ImageButton>(R.id.btnBack)
-            btnBack?.setOnClickListener { finish() }
-
-            val btnScreenshot = playerView.findViewById<ImageButton>(R.id.btnScreenshot)
-            btnScreenshot?.setOnClickListener { ScreenshotHelper.captureFrame(this, playerView) }
-
-            val btnMoreSettings = playerView.findViewById<ImageButton>(R.id.btnMoreSettings)
-            btnMoreSettings?.setOnClickListener { showPlayitStyleMenu() }
-
-            tvNanoOverlay = playerView.findViewById<TextView>(R.id.tvNanoSecondOverlay)
-
             initializePlayer()
-            setupSwipeGestures()
+            setupUIButtons()
             
         } catch (e: Exception) {
             e.printStackTrace()
@@ -60,15 +39,42 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupUIButtons() {
+        try {
+            playerView.findViewById<View>(R.id.btnBack)?.setOnClickListener { finish() }
+            playerView.findViewById<View>(R.id.btnMoreSettings)?.setOnClickListener { showPlayitStyleMenu() }
+            
+            playerView.findViewById<View>(R.id.btnAudioOnly)?.setOnClickListener {
+                Toast.makeText(this, "Playing in Audio Mode", Toast.LENGTH_SHORT).show()
+                val intent = Intent(this, AudioPlayerActivity::class.java).apply { 
+                    putExtra("START_INDEX", intent.getIntExtra("START_INDEX", 0)) 
+                }
+                startActivity(intent)
+                finish()
+            }
+
+            playerView.findViewById<View>(R.id.btnMute)?.setOnClickListener {
+                val currentVol = player?.volume ?: 1f
+                player?.volume = if (currentVol > 0f) 0f else 1f
+                Toast.makeText(this, if (currentVol > 0f) "Muted" else "Unmuted", Toast.LENGTH_SHORT).show()
+            }
+            
+            playerView.findViewById<View>(R.id.btnLock)?.setOnClickListener { Toast.makeText(this, "Screen Locked", Toast.LENGTH_SHORT).show() }
+            playerView.findViewById<View>(R.id.btnCut)?.setOnClickListener { Toast.makeText(this, "Video Cutter Opened", Toast.LENGTH_SHORT).show() }
+            playerView.findViewById<View>(R.id.btnRotate)?.setOnClickListener { Toast.makeText(this, "Screen Rotated", Toast.LENGTH_SHORT).show() }
+
+            playerView.findViewById<View>(R.id.btnSpeed)?.setOnClickListener { Toast.makeText(this, "Playback Speed Settings", Toast.LENGTH_SHORT).show() }
+            playerView.findViewById<View>(R.id.btnResize)?.setOnClickListener { Toast.makeText(this, "Aspect Ratio Changed", Toast.LENGTH_SHORT).show() }
+            playerView.findViewById<View>(R.id.btnPip)?.setOnClickListener { Toast.makeText(this, "Pop-up Window (PIP) Mode", Toast.LENGTH_SHORT).show() }
+            
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
     private fun showPlayitStyleMenu() {
         try {
             val dialog = BottomSheetDialog(this)
-            val view = layoutInflater.inflate(R.layout.dialog_video_settings, null)
+            val view = layoutInflater.inflate(R.layout.dialog_list_menu, null)
             dialog.setContentView(view)
-            
-            val parentView = view.parent as? View
-            parentView?.setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            
             dialog.show()
         } catch (e: Exception) { e.printStackTrace() }
     }
@@ -96,45 +102,8 @@ class PlayerActivity : AppCompatActivity() {
         player?.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 tvTitle?.text = mediaItem?.mediaMetadata?.title?.toString() ?: "Unknown Video"
-                totalDuration = player?.duration ?: 0
             }
         })
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupSwipeGestures() {
-        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
-                if (e1 == null || totalDuration <= 0) return false
-
-                if (abs(distanceX) > abs(distanceY)) {
-                    isSeeking = true
-                    tvNanoOverlay?.visibility = View.VISIBLE
-                    
-                    val change = (distanceX * -100).toLong() 
-                    seekPosition = player?.currentPosition ?: 0
-                    seekPosition += change
-                    
-                    if (seekPosition < 0) seekPosition = 0
-                    if (seekPosition > totalDuration) seekPosition = totalDuration
-                    
-                    tvNanoOverlay?.text = PrecisionTimeFormatter.formatWithMillis(seekPosition)
-                    return true
-                }
-                return false
-            }
-        })
-
-        playerView.setOnTouchListener { _, event ->
-            gestureDetector.onTouchEvent(event)
-            
-            if (event.action == MotionEvent.ACTION_UP && isSeeking) {
-                player?.seekTo(seekPosition)
-                tvNanoOverlay?.visibility = View.GONE
-                isSeeking = false
-            }
-            true 
-        }
     }
 
     override fun onStop() {
