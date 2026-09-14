@@ -29,7 +29,7 @@ class MainActivity : AppCompatActivity() {
     private val videoList = ArrayList<MediaItem>()
     private val audioList = ArrayList<MediaItem>()
     private lateinit var recyclerView: RecyclerView
-    
+
     private var tabVideo: TextView? = null
     private var tabFolder: TextView? = null
     private var historyBlock: LinearLayout? = null
@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity() {
     private var meLayout: ScrollView? = null
     private var etSearch: EditText? = null
 
-    // 4 Bottom Tab Views
+    // 4 Bottom Navigation Tabs
     private var navVideoIcon: ImageView? = null
     private var navVideoText: TextView? = null
     private var navMusicIcon: ImageView? = null
@@ -48,8 +48,8 @@ class MainActivity : AppCompatActivity() {
     private var navMeIcon: ImageView? = null
     private var navMeText: TextView? = null
 
-    private var isShowingVideos = true 
-    private var isFolderView = false 
+    private var isShowingVideos = true
+    private var isFolderView = false
     private var isSearching = false
 
     private val activeColor = Color.parseColor("#00E5FF")
@@ -73,7 +73,7 @@ class MainActivity : AppCompatActivity() {
             meLayout = findViewById(R.id.meLayout)
             etSearch = findViewById(R.id.etSearch)
 
-            // Bottom Nav Elements
+            // Bottom Navigation Views
             navVideoIcon = findViewById(R.id.navVideoIcon)
             navVideoText = findViewById(R.id.navVideoText)
             navMusicIcon = findViewById(R.id.navMusicIcon)
@@ -91,7 +91,9 @@ class MainActivity : AppCompatActivity() {
             setupMeFeatureClicks()
 
             checkAndRequestPermissions()
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun setupCustomBottomTabs() {
@@ -162,16 +164,43 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupMeFeatureClicks() {
         try {
-            findViewById<View>(R.id.btnMeTransfer)?.setOnClickListener { Toast.makeText(this, "File Transfer", Toast.LENGTH_SHORT).show() }
-            findViewById<View>(R.id.btnMeVault)?.setOnClickListener { Toast.makeText(this, "Privacy Vault", Toast.LENGTH_SHORT).show() }
-            findViewById<View>(R.id.btnMePlaylists)?.setOnClickListener { Toast.makeText(this, "My Playlists", Toast.LENGTH_SHORT).show() }
-            findViewById<View>(R.id.btnMeHistory)?.setOnClickListener { Toast.makeText(this, "History", Toast.LENGTH_SHORT).show() }
-            findViewById<View>(R.id.btnMeBin)?.setOnClickListener { Toast.makeText(this, "Recycle Bin", Toast.LENGTH_SHORT).show() }
-            findViewById<View>(R.id.btnMeTheme)?.setOnClickListener { Toast.makeText(this, "Themes", Toast.LENGTH_SHORT).show() }
-            findViewById<View>(R.id.btnMeSettings)?.setOnClickListener { Toast.makeText(this, "Settings", Toast.LENGTH_SHORT).show() }
-            findViewById<View>(R.id.btnMeHelp)?.setOnClickListener { Toast.makeText(this, "Help Center", Toast.LENGTH_SHORT).show() }
-            findViewById<View>(R.id.btnMeRate)?.setOnClickListener { Toast.makeText(this, "Thanks for rating us!", Toast.LENGTH_SHORT).show() }
-        } catch (e: Exception) { e.printStackTrace() }
+            // Top Star / Reward icon opens Monthly & Yearly VIP Subscription Screen
+            findViewById<View>(R.id.btnRewardTop)?.setOnClickListener {
+                startActivity(Intent(this, SubscriptionActivity::class.java))
+            }
+
+            // Settings button opens Monthly & Yearly VIP Subscription Screen
+            findViewById<View>(R.id.btnMeSettings)?.setOnClickListener {
+                startActivity(Intent(this, SubscriptionActivity::class.java))
+            }
+
+            findViewById<View>(R.id.btnMeTransfer)?.setOnClickListener {
+                Toast.makeText(this, "File Transfer", Toast.LENGTH_SHORT).show()
+            }
+            findViewById<View>(R.id.btnMeVault)?.setOnClickListener {
+                Toast.makeText(this, "Privacy Vault", Toast.LENGTH_SHORT).show()
+            }
+            findViewById<View>(R.id.btnMePlaylists)?.setOnClickListener {
+                Toast.makeText(this, "My Playlists", Toast.LENGTH_SHORT).show()
+            }
+            findViewById<View>(R.id.btnMeHistory)?.setOnClickListener {
+                Toast.makeText(this, "History", Toast.LENGTH_SHORT).show()
+            }
+            findViewById<View>(R.id.btnMeBin)?.setOnClickListener {
+                Toast.makeText(this, "Recycle Bin", Toast.LENGTH_SHORT).show()
+            }
+            findViewById<View>(R.id.btnMeTheme)?.setOnClickListener {
+                Toast.makeText(this, "Themes", Toast.LENGTH_SHORT).show()
+            }
+            findViewById<View>(R.id.btnMeHelp)?.setOnClickListener {
+                Toast.makeText(this, "Help Center", Toast.LENGTH_SHORT).show()
+            }
+            findViewById<View>(R.id.btnMeRate)?.setOnClickListener {
+                Toast.makeText(this, "Thanks for rating us 5 Stars!", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun setupSearch() {
@@ -196,14 +225,18 @@ class MainActivity : AppCompatActivity() {
                 combinedList.filter { it.title.contains(query.trim(), ignoreCase = true) }
             }
             showItemsInFolder(filtered)
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun resetTopTabs() {
         try {
             tabVideo?.setTextColor(activeColor)
             tabFolder?.setTextColor(inactiveColor)
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun setupTopTabs() {
@@ -229,11 +262,14 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.READ_MEDIA_VIDEO)
             permissions.add(Manifest.permission.READ_MEDIA_AUDIO)
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
 
-        val missing = permissions.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+        val missing = permissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
         if (missing.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, missing.toTypedArray(), 101)
         } else {
@@ -241,7 +277,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (grantResults.isNotEmpty()) scanMedia()
     }
@@ -251,36 +291,80 @@ class MainActivity : AppCompatActivity() {
             videoList.clear()
             audioList.clear()
 
-            val videoProjection = arrayOf(MediaStore.Video.Media._ID, MediaStore.Video.Media.TITLE, MediaStore.Video.Media.DATA, MediaStore.Video.Media.DURATION)
-            contentResolver.query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, videoProjection, null, null, null)?.use { cursor ->
+            val videoProjection = arrayOf(
+                MediaStore.Video.Media._ID,
+                MediaStore.Video.Media.TITLE,
+                MediaStore.Video.Media.DATA,
+                MediaStore.Video.Media.DURATION
+            )
+            contentResolver.query(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                videoProjection,
+                null,
+                null,
+                null
+            )?.use { cursor ->
                 val idCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
                 val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.TITLE)
                 val pathCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
                 val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
 
                 while (cursor.moveToNext()) {
-                    videoList.add(MediaItem(cursor.getLong(idCol), cursor.getString(titleCol) ?: "Unknown", cursor.getString(pathCol), cursor.getLong(durationCol), true))
+                    videoList.add(
+                        MediaItem(
+                            cursor.getLong(idCol),
+                            cursor.getString(titleCol) ?: "Unknown Video",
+                            cursor.getString(pathCol),
+                            cursor.getLong(durationCol),
+                            true
+                        )
+                    )
                 }
             }
 
-            val audioProjection = arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.DATA, MediaStore.Audio.Media.DURATION)
-            contentResolver.query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, audioProjection, null, null, null)?.use { cursor ->
+            val audioProjection = arrayOf(
+                MediaStore.Audio.Media._ID,
+                MediaStore.Audio.Media.TITLE,
+                MediaStore.Audio.Media.DATA,
+                MediaStore.Audio.Media.DURATION
+            )
+            contentResolver.query(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                audioProjection,
+                null,
+                null,
+                null
+            )?.use { cursor ->
                 val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
                 val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
                 val pathCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
                 val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
 
                 while (cursor.moveToNext()) {
-                    audioList.add(MediaItem(cursor.getLong(idCol), cursor.getString(titleCol) ?: "Unknown", cursor.getString(pathCol), cursor.getLong(durationCol), false))
+                    audioList.add(
+                        MediaItem(
+                            cursor.getLong(idCol),
+                            cursor.getString(titleCol) ?: "Unknown Audio",
+                            cursor.getString(pathCol),
+                            cursor.getLong(durationCol),
+                            false
+                        )
+                    )
                 }
             }
             updateList()
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun getFolders(items: List<MediaItem>): List<MediaFolder> {
         val grouped = items.groupBy { item ->
-            try { File(item.path).parentFile?.name ?: "Unknown Folder" } catch (e: Exception) { "Unknown Folder" }
+            try {
+                File(item.path).parentFile?.name ?: "Unknown Folder"
+            } catch (e: Exception) {
+                "Unknown Folder"
+            }
         }
         return grouped.map { MediaFolder(it.key, it.value) }.sortedBy { it.name }
     }
@@ -301,19 +385,30 @@ class MainActivity : AppCompatActivity() {
             } else {
                 showItemsInFolder(list)
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun showItemsInFolder(itemsToShow: List<MediaItem>) {
         try {
             recyclerView.layoutManager = LinearLayoutManager(this)
-            recyclerView.adapter = MediaAdapter(itemsToShow, false, { item -> showMediaOptionsDialog(item) }, { item -> 
-                currentMediaList.clear()
-                currentMediaList.addAll(itemsToShow)
-                val targetActivity = if (item.isVideo) PlayerActivity::class.java else AudioPlayerActivity::class.java
-                startActivity(Intent(this, targetActivity).apply { putExtra("START_INDEX", itemsToShow.indexOf(item)) })
-            })
-        } catch (e: Exception) { e.printStackTrace() }
+            recyclerView.adapter = MediaAdapter(
+                itemsToShow,
+                false,
+                { item -> showMediaOptionsDialog(item) },
+                { item ->
+                    currentMediaList.clear()
+                    currentMediaList.addAll(itemsToShow)
+                    val targetActivity = if (item.isVideo) PlayerActivity::class.java else AudioPlayerActivity::class.java
+                    startActivity(Intent(this, targetActivity).apply {
+                        putExtra("START_INDEX", itemsToShow.indexOf(item))
+                    })
+                }
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun showMediaOptionsDialog(item: MediaItem) {
@@ -341,7 +436,9 @@ class MainActivity : AppCompatActivity() {
             if (playAudioId != 0) {
                 view.findViewById<View>(playAudioId)?.setOnClickListener {
                     dialog.dismiss()
-                    startActivity(Intent(this, AudioPlayerActivity::class.java).apply { putExtra("START_INDEX", currentMediaList.indexOf(item)) })
+                    startActivity(Intent(this, AudioPlayerActivity::class.java).apply {
+                        putExtra("START_INDEX", currentMediaList.indexOf(item))
+                    })
                 }
             }
 
@@ -361,6 +458,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             dialog.show()
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
