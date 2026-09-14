@@ -9,15 +9,16 @@
         android:id="@+id/topContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_alignParentTop="true">
+        android:layout_alignParentTop="true"
+        android:orientation="vertical">
 
+        <!-- Top Bar -->
         <RelativeLayout
             android:id="@+id/topBar"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:paddingHorizontal="16dp"
-            android:background="#1B1C26">
+            android:background="#1B1C26"
+            android:paddingHorizontal="16dp">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -36,6 +37,7 @@
                 android:orientation="horizontal">
 
                 <ImageButton
+                    android:id="@+id/btnRewardTop"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
                     android:layout_marginEnd="16dp"
@@ -44,6 +46,7 @@
                     app:tint="#FFD700" />
 
                 <ImageButton
+                    android:id="@+id/btnSearchTop"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
@@ -52,6 +55,7 @@
             </LinearLayout>
         </RelativeLayout>
 
+        <!-- Search Input Bar -->
         <LinearLayout
             android:id="@+id/searchLayout"
             android:layout_width="match_parent"
@@ -66,60 +70,65 @@
                 android:layout_height="45dp"
                 android:background="#2A2A30"
                 android:hint="Search any Video or Audio..."
-                android:textColorHint="#AAAAAA"
-                android:textColor="#FFFFFF"
                 android:paddingHorizontal="16dp"
-                android:singleLine="true" />
+                android:singleLine="true"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#AAAAAA" />
         </LinearLayout>
 
+        <!-- History Strip -->
         <LinearLayout
             android:id="@+id/historyBlock"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:background="#1B1C26"
             android:orientation="vertical"
-            android:padding="16dp"
-            android:background="#1B1C26">
+            android:padding="16dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
                 android:text="History"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="8dp"/>
+                android:textStyle="bold" />
 
             <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:scrollbars="none">
+
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal">
+
                     <androidx.cardview.widget.CardView
                         android:layout_width="140dp"
                         android:layout_height="80dp"
                         android:layout_marginEnd="12dp"
                         app:cardBackgroundColor="#2A2A30"
-                        app:cardCornerRadius="8dp"/>
+                        app:cardCornerRadius="8dp" />
+
                     <androidx.cardview.widget.CardView
                         android:layout_width="140dp"
                         android:layout_height="80dp"
                         app:cardBackgroundColor="#2A2A30"
-                        app:cardCornerRadius="8dp"/>
+                        app:cardCornerRadius="8dp" />
                 </LinearLayout>
             </HorizontalScrollView>
         </LinearLayout>
 
+        <!-- Sub Tabs -->
         <LinearLayout
             android:id="@+id/tabLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:background="#0A0B10"
             android:orientation="horizontal"
             android:paddingHorizontal="16dp"
-            android:paddingVertical="12dp"
-            android:background="#0A0B10">
+            android:paddingVertical="12dp">
 
             <TextView
                 android:id="@+id/tabVideo"
@@ -143,7 +152,7 @@
 
             <TextView
                 android:id="@+id/tabPlaylist"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Playlist"
@@ -152,25 +161,26 @@
                 android:textStyle="bold" />
 
             <ImageButton
+                android:id="@+id/btnSort"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:layout_marginEnd="8dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_sort_by_size"
                 app:tint="#AAAAAA" />
         </LinearLayout>
-
     </LinearLayout>
 
+    <!-- Content Recycler -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@id/topContainer"
         android:layout_above="@id/bottomNav"
+        android:layout_below="@id/topContainer"
         android:clipToPadding="false"
         android:paddingBottom="8dp" />
 
+    <!-- Bottom Navigation Bar -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
@@ -180,4 +190,5 @@
         app:itemIconTint="@color/nav_item_color"
         app:itemTextColor="@color/nav_item_color"
         app:menu="@menu/bottom_nav_menu" />
+
 </RelativeLayout>
