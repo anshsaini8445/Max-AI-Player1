@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.MediaStore
 import android.text.Editable
 import android.text.TextWatcher
@@ -73,7 +74,6 @@ class MainActivity : AppCompatActivity() {
             meLayout = findViewById(R.id.meLayout)
             etSearch = findViewById(R.id.etSearch)
 
-            // Bottom Navigation Views
             navVideoIcon = findViewById(R.id.navVideoIcon)
             navVideoText = findViewById(R.id.navVideoText)
             navMusicIcon = findViewById(R.id.navMusicIcon)
@@ -164,12 +164,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupMeFeatureClicks() {
         try {
-            // Top Star / Reward icon opens Monthly & Yearly VIP Subscription Screen
             findViewById<View>(R.id.btnRewardTop)?.setOnClickListener {
                 startActivity(Intent(this, SubscriptionActivity::class.java))
             }
 
-            // Settings button opens Monthly & Yearly VIP Subscription Screen
             findViewById<View>(R.id.btnMeSettings)?.setOnClickListener {
                 startActivity(Intent(this, SubscriptionActivity::class.java))
             }
@@ -291,6 +289,7 @@ class MainActivity : AppCompatActivity() {
             videoList.clear()
             audioList.clear()
 
+            // 1. Regular System MediaStore Scan
             val videoProjection = arrayOf(
                 MediaStore.Video.Media._ID,
                 MediaStore.Video.Media.TITLE,
@@ -322,6 +321,29 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            // 2. Scan Chrome Incomplete Files (.crdownload / .part) from Download folder
+            try {
+                val downloadFolder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                if (downloadFolder.exists() && downloadFolder.isDirectory) {
+                    val partialFiles = downloadFolder.listFiles { file ->
+                        file.isFile && (file.name.endsWith(".crdownload", true) || file.name.endsWith(".part", true))
+                    }
+                    partialFiles?.forEachIndexed { index, file ->
+                        videoList.add(
+                            0, // Add on top of the list
+                            MediaItem(
+                                (999999 + index).toLong(),
+                                "⚡ [Chrome Downloading] " + file.name.removeSuffix(".crdownload").removeSuffix(".part"),
+                                file.absolutePath,
+                                0L,
+                                true
+                            )
+                        )
+                    }
+                }
+            } catch (_: Exception) {}
+
+            // 3. Audio Media Scan
             val audioProjection = arrayOf(
                 MediaStore.Audio.Media._ID,
                 MediaStore.Audio.Media.TITLE,
