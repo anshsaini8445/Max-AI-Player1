@@ -1,42 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:allowBackup="true"
-        android:icon="@drawable/ic_app_icon"
-        android:label="MAX Player PRO"
-        android:roundIcon="@drawable/ic_app_icon"
+        android:icon="@mipmap/ic_launcher"
+        android:label="MX Player"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
+        android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar">
 
-        <activity android:name=".PremiumActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".AudioPlayerActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".PlayerActivity" android:exported="false" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" android:resizeableActivity="true" android:supportsPictureInPicture="true" />
-        
-        <activity android:name=".VaultActivity" android:screenOrientation="portrait" />
-        <activity android:name=".EqualizerActivity" android:screenOrientation="portrait" />
-        <activity android:name=".ThemeActivity" android:screenOrientation="portrait" />
-        <activity android:name=".RecycleBinActivity" android:screenOrientation="portrait" />
-        <activity android:name=".Mp3ConverterActivity" android:screenOrientation="portrait" />
-
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity
+            android:name=".SplashActivity"
+            android:exported="true"
+            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <service android:name=".PlaybackService" android:foregroundServiceType="mediaPlayback" android:exported="true">
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustPan" />
+
+        <activity
+            android:name=".PlayerActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:exported="false"
+            android:supportsPictureInPicture="true" />
+
+        <activity
+            android:name=".AudioPlayerActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".SubscriptionActivity"
+            android:exported="false" />
+
+        <service
+            android:name=".PlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
+
     </application>
+
 </manifest>
