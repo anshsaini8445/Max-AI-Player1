@@ -6,13 +6,16 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
+import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomnavigation.BottomNavigationView
@@ -28,9 +31,14 @@ class MainActivity : AppCompatActivity() {
     
     private var tabVideo: TextView? = null
     private var tabFolder: TextView? = null
+    private var historyBlock: LinearLayout? = null
+    private var tabLayout: LinearLayout? = null
+    private var searchLayout: LinearLayout? = null
+    private var etSearch: EditText? = null
 
     private var isShowingVideos = true 
     private var isFolderView = false 
+    private var isSearching = false
 
     companion object {
         var currentMediaList: List<MediaItem> = emptyList()
@@ -46,15 +54,24 @@ class MainActivity : AppCompatActivity() {
             bottomNav = findViewById(R.id.bottomNav)
             tabVideo = findViewById(R.id.tabVideo)
             tabFolder = findViewById(R.id.tabFolder)
+            historyBlock = findViewById(R.id.historyBlock)
+            tabLayout = findViewById(R.id.tabLayout)
+            searchLayout = findViewById(R.id.searchLayout)
+            etSearch = findViewById(R.id.etSearch)
 
             recyclerView.layoutManager = LinearLayoutManager(this)
 
             setupTopTabs()
+            setupSearch()
 
             bottomNav?.setOnItemSelectedListener { item ->
                 try {
                     when (item.itemId) {
                         R.id.nav_video -> {
+                            isSearching = false
+                            searchLayout?.visibility = View.GONE
+                            historyBlock?.visibility = View.VISIBLE
+                            tabLayout?.visibility = View.VISIBLE
                             isShowingVideos = true
                             isFolderView = false
                             resetTabsToDefault()
@@ -62,10 +79,22 @@ class MainActivity : AppCompatActivity() {
                             true
                         }
                         R.id.nav_music -> {
+                            isSearching = false
+                            searchLayout?.visibility = View.GONE
+                            historyBlock?.visibility = View.VISIBLE
+                            tabLayout?.visibility = View.VISIBLE
                             isShowingVideos = false
                             isFolderView = false
                             resetTabsToDefault()
                             updateList()
+                            true
+                        }
+                        R.id.nav_search -> {
+                            isSearching = true
+                            searchLayout?.visibility = View.VISIBLE
+                            historyBlock?.visibility = View.GONE
+                            tabLayout?.visibility = View.GONE
+                            filterList(etSearch?.text.toString())
                             true
                         }
                         R.id.nav_settings -> {
@@ -87,12 +116,44 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupSearch() {
+        etSearch?.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                if (isSearching) {
+                    filterList(s.toString())
+                }
+            }
+        })
+    }
+
+    private fun filterList(query: String) {
+        try {
+            val combinedList = mutableListOf<MediaItem>()
+            combinedList.addAll(videoList)
+            combinedList.addAll(audioList)
+            
+            val filtered = if (query.isEmpty()) {
+                combinedList
+            } else {
+                combinedList.filter { it.title.contains(query, ignoreCase = true) }
+            }
+            showItemsInFolder(filtered)
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
     private fun resetTabsToDefault() {
         try {
             val activeColor = android.graphics.Color.parseColor("#00E5FF")
             val inactiveColor = android.graphics.Color.parseColor("#AAAAAA")
-            tabVideo?.setTextColor(activeColor)
-            tabFolder?.setTextColor(inactiveColor)
+            if (isShowingVideos) {
+                tabVideo?.setTextColor(activeColor)
+                tabFolder?.setTextColor(inactiveColor)
+            } else {
+                tabVideo?.setTextColor(inactiveColor)
+                tabFolder?.setTextColor(activeColor)
+            }
         } catch (e: Exception) { e.printStackTrace() }
     }
 
@@ -101,6 +162,7 @@ class MainActivity : AppCompatActivity() {
         val inactiveColor = android.graphics.Color.parseColor("#AAAAAA")
 
         tabVideo?.setOnClickListener {
+            if (isSearching) return@setOnClickListener
             isFolderView = false
             tabVideo?.setTextColor(activeColor)
             tabFolder?.setTextColor(inactiveColor)
@@ -108,6 +170,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         tabFolder?.setOnClickListener {
+            if (isSearching) return@setOnClickListener
             isFolderView = true
             tabFolder?.setTextColor(activeColor)
             tabVideo?.setTextColor(inactiveColor)
@@ -182,6 +245,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateList() {
+        if (isSearching) return
         try {
             val list = if (isShowingVideos) videoList else audioList
             if (isFolderView) {
@@ -223,32 +287,44 @@ class MainActivity : AppCompatActivity() {
             val view = layoutInflater.inflate(R.layout.dialog_list_menu, null)
             dialog.setContentView(view)
 
-            view.findViewById<TextView>(R.id.menuMediaTitle)?.text = item.title
+            val titleId = resources.getIdentifier("menuMediaTitle", "id", packageName)
+            if (titleId != 0) view.findViewById<TextView>(titleId)?.text = item.title
 
-            // 100% WORKING SHARE OPTION
-            view.findViewById<View>(R.id.menuShare)?.setOnClickListener {
-                dialog.dismiss()
-                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = if (item.isVideo) "video/*" else "audio/*"
-                    putExtra(Intent.EXTRA_STREAM, android.net.Uri.parse("file://${item.path}"))
+            val shareId = resources.getIdentifier("menuShare", "id", packageName)
+            if (shareId != 0) {
+                view.findViewById<View>(shareId)?.setOnClickListener {
+                    dialog.dismiss()
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = if (item.isVideo) "video/*" else "audio/*"
+                        putExtra(Intent.EXTRA_STREAM, android.net.Uri.parse("file://${item.path}"))
+                    }
+                    startActivity(Intent.createChooser(shareIntent, "Share Media Via:"))
                 }
-                startActivity(Intent.createChooser(shareIntent, "Share Media Via:"))
             }
 
-            view.findViewById<View>(R.id.menuPlayAudio)?.setOnClickListener {
-                dialog.dismiss()
-                val intent = Intent(this, AudioPlayerActivity::class.java).apply { putExtra("START_INDEX", currentMediaList.indexOf(item)) }
-                startActivity(intent)
+            val playAudioId = resources.getIdentifier("menuPlayAudio", "id", packageName)
+            if (playAudioId != 0) {
+                view.findViewById<View>(playAudioId)?.setOnClickListener {
+                    dialog.dismiss()
+                    val intent = Intent(this, AudioPlayerActivity::class.java).apply { putExtra("START_INDEX", currentMediaList.indexOf(item)) }
+                    startActivity(intent)
+                }
             }
 
-            view.findViewById<View>(R.id.menuLockVault)?.setOnClickListener {
-                dialog.dismiss()
-                Toast.makeText(this, "Moved to Privacy Folder", Toast.LENGTH_SHORT).show()
+            val vaultId = resources.getIdentifier("menuLockVault", "id", packageName)
+            if (vaultId != 0) {
+                view.findViewById<View>(vaultId)?.setOnClickListener {
+                    dialog.dismiss()
+                    Toast.makeText(this, "Moved to Privacy Folder", Toast.LENGTH_SHORT).show()
+                }
             }
 
-            view.findViewById<View>(R.id.menuDelete)?.setOnClickListener {
-                dialog.dismiss()
-                Toast.makeText(this, "Deleted Successfully", Toast.LENGTH_SHORT).show()
+            val deleteId = resources.getIdentifier("menuDelete", "id", packageName)
+            if (deleteId != 0) {
+                view.findViewById<View>(deleteId)?.setOnClickListener {
+                    dialog.dismiss()
+                    Toast.makeText(this, "Deleted Successfully", Toast.LENGTH_SHORT).show()
+                }
             }
 
             dialog.show()
