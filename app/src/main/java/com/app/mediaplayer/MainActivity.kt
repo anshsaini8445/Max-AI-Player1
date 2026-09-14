@@ -127,14 +127,14 @@ class MainActivity : AppCompatActivity() {
     private fun setupMeFeatureClicks() {
         try {
             findViewById<View>(R.id.btnMeTransfer)?.setOnClickListener { Toast.makeText(this, "File Transfer", Toast.LENGTH_SHORT).show() }
-            findViewById<View>(R.id.btnMeVault)?.setOnClickListener { Toast.makeText(this, "Privacy Vault Locked", Toast.LENGTH_SHORT).show() }
+            findViewById<View>(R.id.btnMeVault)?.setOnClickListener { Toast.makeText(this, "Privacy Vault", Toast.LENGTH_SHORT).show() }
             findViewById<View>(R.id.btnMePlaylists)?.setOnClickListener { Toast.makeText(this, "My Playlists", Toast.LENGTH_SHORT).show() }
-            findViewById<View>(R.id.btnMeHistory)?.setOnClickListener { Toast.makeText(this, "Watch History", Toast.LENGTH_SHORT).show() }
+            findViewById<View>(R.id.btnMeHistory)?.setOnClickListener { Toast.makeText(this, "History", Toast.LENGTH_SHORT).show() }
             findViewById<View>(R.id.btnMeBin)?.setOnClickListener { Toast.makeText(this, "Recycle Bin", Toast.LENGTH_SHORT).show() }
-            findViewById<View>(R.id.btnMeTheme)?.setOnClickListener { Toast.makeText(this, "Theme Settings", Toast.LENGTH_SHORT).show() }
-            findViewById<View>(R.id.btnMeSettings)?.setOnClickListener { Toast.makeText(this, "General Settings", Toast.LENGTH_SHORT).show() }
+            findViewById<View>(R.id.btnMeTheme)?.setOnClickListener { Toast.makeText(this, "Themes", Toast.LENGTH_SHORT).show() }
+            findViewById<View>(R.id.btnMeSettings)?.setOnClickListener { Toast.makeText(this, "Settings", Toast.LENGTH_SHORT).show() }
             findViewById<View>(R.id.btnMeHelp)?.setOnClickListener { Toast.makeText(this, "Help Center", Toast.LENGTH_SHORT).show() }
-            findViewById<View>(R.id.btnMeRate)?.setOnClickListener { Toast.makeText(this, "Thanks for rating us 5 Stars!", Toast.LENGTH_SHORT).show() }
+            findViewById<View>(R.id.btnMeRate)?.setOnClickListener { Toast.makeText(this, "Thanks for rating!", Toast.LENGTH_SHORT).show() }
         } catch (e: Exception) { e.printStackTrace() }
     }
 
