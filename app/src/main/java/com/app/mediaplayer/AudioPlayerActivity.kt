@@ -17,15 +17,20 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
+import androidx.media3.common.MediaItem as ExoMediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
-import androidx.media3.common.MediaItem as ExoMediaItem
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.util.Locale
+import java.util.concurrent.Executors
 import kotlin.math.abs
 
 class AudioPlayerActivity : AppCompatActivity() {
@@ -33,29 +38,32 @@ class AudioPlayerActivity : AppCompatActivity() {
     private var player: Player? = null
     private var mediaController: MediaController? = null
     private var tvTitle: TextView? = null
+    private var tvSubtitle: TextView? = null
     private var tvCurrent: TextView? = null
     private var tvTotal: TextView? = null
     private var seekBar: SeekBar? = null
-    private var cardPlayPause: CardView? = null
-    private var imgPlayPauseIcon: ImageView? = null
+    private var imgPlayPause: ImageView? = null
+    private var cardAlbumArt: CardView? = null
     private var imgAlbumArt: ImageView? = null
-    
-    private lateinit var gestureDetector: GestureDetector
+
+    private var rotationAnimator: ObjectAnimator? = null
+    private val bgExecutor = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     private var isSeeking = false
     private var seekPosition: Long = 0
     private var totalDuration: Long = 0
-    private var rotationAnimator: ObjectAnimator? = null
 
-    private val handler = Handler(Looper.getMainLooper())
-    private val updateProgressRunnable = object : Runnable {
+    private val progressUpdater = object : Runnable {
         override fun run() {
             if (!isSeeking) {
                 player?.let { p ->
-                    tvCurrent?.text = formatTime(p.currentPosition)
-                    seekBar?.progress = p.currentPosition.toInt()
+                    val pos = p.currentPosition
+                    tvCurrent?.text = formatTime(pos)
+                    seekBar?.progress = pos.toInt()
                 }
             }
-            handler.postDelayed(this, 1000)
+            mainHandler.postDelayed(this, 1000)
         }
     }
 
@@ -66,30 +74,29 @@ class AudioPlayerActivity : AppCompatActivity() {
             setContentView(R.layout.activity_audio_player)
 
             tvTitle = findViewById(R.id.tvAudioTitle)
+            tvSubtitle = findViewById(R.id.tvAudioSubtitle)
             tvCurrent = findViewById(R.id.tvAudioCurrent)
             tvTotal = findViewById(R.id.tvAudioTotal)
             seekBar = findViewById(R.id.seekAudio)
-            cardPlayPause = findViewById(R.id.btnAudioPlayPause)
+            imgPlayPause = findViewById(R.id.imgPlayPause)
+            cardAlbumArt = findViewById(R.id.cardAlbumArt)
             imgAlbumArt = findViewById(R.id.imgAlbumArt)
-            
-            if (cardPlayPause != null && cardPlayPause!!.childCount > 0) {
-                imgPlayPauseIcon = cardPlayPause!!.getChildAt(0) as? ImageView
-            }
 
-            findViewById<ImageButton>(R.id.btnBackAudio)?.setOnClickListener { finish() }
-            
-            imgAlbumArt?.let {
+            tvTitle?.isSelected = true
+
+            cardAlbumArt?.let {
                 rotationAnimator = ObjectAnimator.ofFloat(it, View.ROTATION, 0f, 360f).apply {
-                    duration = 10000 
+                    duration = 14000
                     repeatCount = ObjectAnimator.INFINITE
                     interpolator = LinearInterpolator()
                 }
             }
 
-            setupSwipeGestures()
+            setupClickListeners()
+            setupGestures()
         } catch (e: Exception) {
             e.printStackTrace()
-            finish() 
+            finish()
         }
     }
 
@@ -98,27 +105,28 @@ class AudioPlayerActivity : AppCompatActivity() {
         try {
             val sessionToken = SessionToken(this, ComponentName(this, PlaybackService::class.java))
             val future = MediaController.Builder(this, sessionToken).buildAsync()
-            
             future.addListener({
                 mediaController = future.get()
                 player = mediaController
-                setupPlayer()
+                setupMedia()
             }, ContextCompat.getMainExecutor(this))
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
-    private fun setupPlayer() {
+    private fun setupMedia() {
         try {
             val mediaList = MainActivity.currentMediaList
             val startIndex = intent.getIntExtra("START_INDEX", 0)
 
             if (mediaList.isNotEmpty()) {
                 if (player?.mediaItemCount != mediaList.size) {
-                    val exoItems = mediaList.map { item ->
+                    val exoItems = mediaList.map {
                         ExoMediaItem.Builder()
-                            .setUri(item.path)
-                            .setMediaMetadata(MediaMetadata.Builder().setTitle(item.title).build())
-                            .build() 
+                            .setUri(it.path)
+                            .setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).build())
+                            .build()
                     }
                     player?.setMediaItems(exoItems, startIndex, 0L)
                     player?.prepare()
@@ -127,39 +135,40 @@ class AudioPlayerActivity : AppCompatActivity() {
                     player?.seekTo(startIndex, 0L)
                     player?.play()
                 }
-                setAlbumArt(mediaList[startIndex].path)
+                loadAlbumArtAsync(mediaList[startIndex].path)
             }
 
             player?.addListener(object : Player.Listener {
                 override fun onMediaItemTransition(mediaItem: ExoMediaItem?, reason: Int) {
-                    tvTitle?.text = mediaItem?.mediaMetadata?.title?.toString() ?: "Unknown Audio"
-                    val currentIndex = player?.currentMediaItemIndex ?: 0
-                    if (mediaList.isNotEmpty() && currentIndex >= 0 && currentIndex < mediaList.size) {
-                        setAlbumArt(mediaList[currentIndex].path)
+                    val title = mediaItem?.mediaMetadata?.title?.toString() ?: "Song"
+                    tvTitle?.text = title
+                    val idx = player?.currentMediaItemIndex ?: 0
+                    if (idx in mediaList.indices) {
+                        loadAlbumArtAsync(mediaList[idx].path)
                     }
                     player?.let { p ->
                         totalDuration = p.duration
-                        if(totalDuration > 0) {
+                        if (totalDuration > 0) {
                             seekBar?.max = totalDuration.toInt()
                             tvTotal?.text = formatTime(totalDuration)
                         }
                     }
                 }
-                
+
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     if (isPlaying) {
-                        imgPlayPauseIcon?.setImageResource(android.R.drawable.ic_media_pause)
-                        handler.post(updateProgressRunnable)
+                        imgPlayPause?.setImageResource(android.R.drawable.ic_media_pause)
+                        mainHandler.post(progressUpdater)
                         if (rotationAnimator?.isPaused == true) rotationAnimator?.resume() else rotationAnimator?.start()
                     } else {
-                        imgPlayPauseIcon?.setImageResource(android.R.drawable.ic_media_play)
-                        handler.removeCallbacks(updateProgressRunnable)
+                        imgPlayPause?.setImageResource(android.R.drawable.ic_media_play)
+                        mainHandler.removeCallbacks(progressUpdater)
                         rotationAnimator?.pause()
                     }
                 }
             })
 
-            cardPlayPause?.setOnClickListener {
+            findViewById<CardView>(R.id.btnAudioPlayPause)?.setOnClickListener {
                 if (player?.isPlaying == true) player?.pause() else player?.play()
             }
 
@@ -167,48 +176,147 @@ class AudioPlayerActivity : AppCompatActivity() {
             findViewById<ImageButton>(R.id.btnAudioNext)?.setOnClickListener { player?.seekToNextMediaItem() }
 
             seekBar?.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                     if (fromUser) tvCurrent?.text = formatTime(progress.toLong())
                 }
-                override fun onStartTrackingTouch(seekBar: SeekBar?) { isSeeking = true }
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                override fun onStartTrackingTouch(sb: SeekBar?) { isSeeking = true }
+                override fun onStopTrackingTouch(sb: SeekBar?) {
                     isSeeking = false
-                    seekBar?.let { player?.seekTo(it.progress.toLong()) }
+                    sb?.let { player?.seekTo(it.progress.toLong()) }
                 }
             })
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
-    private fun setAlbumArt(path: String) {
-        Thread {
+    private fun setupClickListeners() {
+        findViewById<ImageButton>(R.id.btnBackAudio)?.setOnClickListener { finish() }
+
+        findViewById<ImageButton>(R.id.btnAudioShare)?.setOnClickListener {
+            val idx = player?.currentMediaItemIndex ?: 0
+            val mediaList = MainActivity.currentMediaList
+            if (idx in mediaList.indices) {
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "audio/*"
+                    putExtra(Intent.EXTRA_STREAM, android.net.Uri.parse("file://${mediaList[idx].path}"))
+                }
+                startActivity(Intent.createChooser(shareIntent, "Share Audio via"))
+            }
+        }
+
+        findViewById<ImageButton>(R.id.btnFavorite)?.setOnClickListener {
+            Toast.makeText(this, "Added to Favorites", Toast.LENGTH_SHORT).show()
+        }
+
+        findViewById<ImageButton>(R.id.btnEqAudio)?.setOnClickListener {
+            showEqualizerDialog()
+        }
+
+        findViewById<ImageButton>(R.id.btnSleepTimer)?.setOnClickListener {
+            showSleepTimerDialog()
+        }
+
+        findViewById<ImageButton>(R.id.btnMoreAudio)?.setOnClickListener {
+            showMoreOptionsDialog()
+        }
+
+        findViewById<ImageButton>(R.id.btnQueueList)?.setOnClickListener {
+            showQueueBottomSheet()
+        }
+
+        findViewById<ImageButton>(R.id.btnShuffle)?.setOnClickListener {
+            val shuffleOn = !(player?.shuffleModeEnabled ?: false)
+            player?.shuffleModeEnabled = shuffleOn
+            Toast.makeText(this, if (shuffleOn) "Shuffle ON" else "Shuffle OFF", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showEqualizerDialog() {
+        val presets = arrayOf("Normal", "Classical", "Dance", "Flat", "Bass Boost")
+        AlertDialog.Builder(this)
+            .setTitle("Equalizer Presets")
+            .setItems(presets) { _, which ->
+                Toast.makeText(this, "${presets[which]} Applied", Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+
+    private fun showSleepTimerDialog() {
+        val timers = arrayOf("15 minutes", "30 minutes", "45 minutes", "60 minutes", "Turn off timer")
+        AlertDialog.Builder(this)
+            .setTitle("Sleep Timer")
+            .setItems(timers) { _, which ->
+                Toast.makeText(this, "Timer: ${timers[which]}", Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+
+    private fun showMoreOptionsDialog() {
+        val options = arrayOf("Set as ringtone", "Add to playlist", "Playback Speed", "File info")
+        AlertDialog.Builder(this)
+            .setItems(options) { _, which ->
+                when (which) {
+                    2 -> {
+                        val speeds = arrayOf("0.75x", "1.0x (Normal)", "1.25x", "1.5x")
+                        val speedVals = floatArrayOf(0.75f, 1.0f, 1.25f, 1.5f)
+                        AlertDialog.Builder(this).setItems(speeds) { _, sIdx ->
+                            player?.playbackParameters = PlaybackParameters(speedVals[sIdx])
+                        }.show()
+                    }
+                    else -> Toast.makeText(this, options[which], Toast.LENGTH_SHORT).show()
+                }
+            }
+            .show()
+    }
+
+    private fun showQueueBottomSheet() {
+        val dialog = BottomSheetDialog(this)
+        val mediaList = MainActivity.currentMediaList
+        val titles = mediaList.map { it.title }.toTypedArray()
+
+        dialog.setContentView(layoutInflater.inflate(R.layout.dialog_list_menu, null))
+        AlertDialog.Builder(this)
+            .setTitle("Now Playing (${mediaList.size} Songs)")
+            .setItems(titles) { _, which ->
+                player?.seekTo(which, 0L)
+            }
+            .show()
+    }
+
+    private fun loadAlbumArtAsync(path: String) {
+        bgExecutor.execute {
+            var bmp: android.graphics.Bitmap? = null
             try {
                 val retriever = MediaMetadataRetriever()
                 retriever.setDataSource(path)
                 val art = retriever.embeddedPicture
                 retriever.release()
-                
-                runOnUiThread {
-                    if (art != null) {
-                        val bitmap = BitmapFactory.decodeByteArray(art, 0, art.size)
-                        imgAlbumArt?.setImageBitmap(bitmap)
-                    } else {
-                        imgAlbumArt?.setImageResource(android.R.drawable.ic_media_play)
-                    }
+                if (art != null) {
+                    bmp = BitmapFactory.decodeByteArray(art, 0, art.size)
                 }
-            } catch (e: Exception) { e.printStackTrace() }
-        }.start()
+            } catch (_: Exception) {}
+
+            mainHandler.post {
+                if (bmp != null) {
+                    imgAlbumArt?.setImageBitmap(bmp)
+                    imgAlbumArt?.imageTintList = null
+                } else {
+                    imgAlbumArt?.setImageResource(android.R.drawable.ic_media_play)
+                }
+            }
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun setupSwipeGestures() {
-        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
+    private fun setupGestures() {
+        val detector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dX: Float, dY: Float): Boolean {
                 if (e1 == null || totalDuration <= 0) return false
-                if (abs(distanceX) > abs(distanceY)) {
+                if (abs(dX) > abs(dY)) {
                     isSeeking = true
-                    val change = (distanceX * -100).toLong() 
-                    seekPosition = player?.currentPosition ?: 0
-                    seekPosition += change
+                    val change = (dX * -80).toLong()
+                    seekPosition = (player?.currentPosition ?: 0) + change
                     if (seekPosition < 0) seekPosition = 0
                     if (seekPosition > totalDuration) seekPosition = totalDuration
                     tvCurrent?.text = formatTime(seekPosition)
@@ -218,27 +326,35 @@ class AudioPlayerActivity : AppCompatActivity() {
                 return false
             }
         })
-        findViewById<CardView>(R.id.cardAlbumArt)?.setOnTouchListener { _, event ->
-            gestureDetector.onTouchEvent(event)
+
+        cardAlbumArt?.setOnTouchListener { _, event ->
+            detector.onTouchEvent(event)
             if (event.action == MotionEvent.ACTION_UP && isSeeking) {
                 player?.seekTo(seekPosition)
                 isSeeking = false
             }
-            true 
+            true
         }
     }
 
     private fun formatTime(ms: Long): String {
         if (ms < 0) return "00:00"
-        val totalSecs = ms / 1000
-        val mins = totalSecs / 60
-        val secs = totalSecs % 60
-        return String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
+        val totalSec = ms / 1000
+        val m = totalSec / 60
+        val s = totalSec % 60
+        return String.format(Locale.getDefault(), "%02d:%02d", m, s)
     }
 
     override fun onStop() {
         super.onStop()
-        handler.removeCallbacks(updateProgressRunnable)
+        mainHandler.removeCallbacks(progressUpdater)
         mediaController?.release()
+        mediaController = null
+    }
+
+    override fun onDestroy() {
+        rotationAnimator?.cancel()
+        bgExecutor.shutdown()
+        super.onDestroy()
     }
 }
