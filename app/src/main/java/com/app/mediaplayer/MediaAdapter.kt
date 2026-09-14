@@ -37,16 +37,22 @@ class MediaAdapter(
         val item = items[position]
         holder.tvTitle.text = item.title
         
+        // Exact Time Format matching your sketch (e.g., 1:20:00 or 05:30)
         val totalSecs = item.duration / 1000
-        val mins = totalSecs / 60
+        val hours = totalSecs / 3600
+        val mins = (totalSecs % 3600) / 60
         val secs = totalSecs % 60
-        holder.tvDuration.text = String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
+        holder.tvDuration.text = if (hours > 0) {
+            String.format(Locale.getDefault(), "%d:%02d:%02d", hours, mins, secs)
+        } else {
+            String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
+        }
 
         try {
             val file = File(item.path)
             val sizeMb = file.length() / (1024 * 1024)
-            val typeStr = if (item.isVideo) "Videos" else "Music"
-            holder.tvSubtitle.text = "${sizeMb} MB  •  $typeStr"
+            val formatTag = if (item.isVideo) "(mp4)" else "(mp3)"
+            holder.tvSubtitle.text = "${sizeMb} MB  •  $formatTag"
         } catch (e: Exception) {
             holder.tvSubtitle.text = "Unknown Size"
         }
