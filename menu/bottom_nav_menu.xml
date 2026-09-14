@@ -8,6 +8,7 @@
         android:id="@+id/nav_music"
         android:icon="@android:drawable/ic_media_ff"
         android:title="Music" />
+    <!-- Ye naya Search button hai -->
     <item
         android:id="@+id/nav_search"
         android:icon="@android:drawable/ic_menu_search"
