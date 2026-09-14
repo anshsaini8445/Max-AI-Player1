@@ -94,7 +94,7 @@ class MainActivity : AppCompatActivity() {
                             searchLayout?.visibility = View.VISIBLE
                             historyBlock?.visibility = View.GONE
                             tabLayout?.visibility = View.GONE
-                            filterList(etSearch?.text.toString())
+                            filterList(etSearch?.text?.toString() ?: "")
                             true
                         }
                         R.id.nav_settings -> {
@@ -122,7 +122,7 @@ class MainActivity : AppCompatActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
                 if (isSearching) {
-                    filterList(s.toString())
+                    filterList(s?.toString() ?: "")
                 }
             }
         })
@@ -134,13 +134,15 @@ class MainActivity : AppCompatActivity() {
             combinedList.addAll(videoList)
             combinedList.addAll(audioList)
             
-            val filtered = if (query.isEmpty()) {
+            val filtered = if (query.trim().isEmpty()) {
                 combinedList
             } else {
-                combinedList.filter { it.title.contains(query, ignoreCase = true) }
+                combinedList.filter { it.title.contains(query.trim(), ignoreCase = true) }
             }
             showItemsInFolder(filtered)
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) { 
+            e.printStackTrace() 
+        }
     }
 
     private fun resetTabsToDefault() {
@@ -266,7 +268,6 @@ class MainActivity : AppCompatActivity() {
     private fun showItemsInFolder(itemsToShow: List<MediaItem>) {
         try {
             recyclerView.layoutManager = LinearLayoutManager(this)
-            
             recyclerView.adapter = MediaAdapter(
                 itemsToShow, 
                 false,
