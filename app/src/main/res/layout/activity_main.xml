@@ -5,7 +5,6 @@
     android:layout_height="match_parent"
     android:background="#0A0B10">
 
-    <!-- UPAR KA HISSA -->
     <LinearLayout
         android:id="@+id/topContainer"
         android:layout_width="match_parent"
@@ -13,14 +12,12 @@
         android:layout_alignParentTop="true"
         android:orientation="vertical">
 
-        <!-- Top Bar -->
         <RelativeLayout
             android:id="@+id/topBar"
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:background="#1B1C26"
             android:paddingHorizontal="16dp">
-
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -29,7 +26,6 @@
                 android:textColor="#FFFFFF"
                 android:textSize="20sp"
                 android:textStyle="bold" />
-
             <ImageButton
                 android:id="@+id/btnRewardTop"
                 android:layout_width="32dp"
@@ -41,7 +37,6 @@
                 app:tint="#FFD700" />
         </RelativeLayout>
 
-        <!-- History Strip -->
         <LinearLayout
             android:id="@+id/historyBlock"
             android:layout_width="match_parent"
@@ -49,7 +44,6 @@
             android:background="#1B1C26"
             android:orientation="vertical"
             android:padding="16dp">
-
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -58,24 +52,20 @@
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:textStyle="bold" />
-
             <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:scrollbars="none">
-
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal">
-
                     <androidx.cardview.widget.CardView
                         android:layout_width="140dp"
                         android:layout_height="80dp"
                         android:layout_marginEnd="12dp"
                         app:cardBackgroundColor="#2A2A30"
                         app:cardCornerRadius="8dp" />
-
                     <androidx.cardview.widget.CardView
                         android:layout_width="140dp"
                         android:layout_height="80dp"
@@ -85,7 +75,6 @@
             </HorizontalScrollView>
         </LinearLayout>
 
-        <!-- Sub Tabs -->
         <LinearLayout
             android:id="@+id/tabLayout"
             android:layout_width="match_parent"
@@ -94,7 +83,6 @@
             android:orientation="horizontal"
             android:paddingHorizontal="16dp"
             android:paddingVertical="12dp">
-
             <TextView
                 android:id="@+id/tabVideo"
                 android:layout_width="wrap_content"
@@ -104,7 +92,6 @@
                 android:textColor="#00E5FF"
                 android:textSize="16sp"
                 android:textStyle="bold" />
-
             <TextView
                 android:id="@+id/tabFolder"
                 android:layout_width="wrap_content"
@@ -114,7 +101,6 @@
                 android:textColor="#AAAAAA"
                 android:textSize="16sp"
                 android:textStyle="bold" />
-
             <TextView
                 android:id="@+id/tabPlaylist"
                 android:layout_width="0dp"
@@ -124,7 +110,6 @@
                 android:textColor="#AAAAAA"
                 android:textSize="16sp"
                 android:textStyle="bold" />
-
             <ImageButton
                 android:id="@+id/btnSort"
                 android:layout_width="24dp"
@@ -135,18 +120,82 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- BOTTOM NAVIGATION (Music, Video, Search, Me) -->
-    <com.google.android.material.bottomnavigation.BottomNavigationView
-        android:id="@+id/bottomNav"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:background="#1B1C26"
-        app:itemIconTint="@color/nav_item_color"
-        app:itemTextColor="@color/nav_item_color"
-        app:menu="@menu/bottom_nav_menu" />
+        android:layout_height="match_parent"
+        android:layout_above="@id/searchLayout"
+        android:layout_below="@id/topContainer"
+        android:clipToPadding="false"
+        android:paddingBottom="8dp" />
 
-    <!-- SEARCH BAR (Niche Shift Kar Diya Gaya Hai) -->
+    <!-- NAYA ME SECTION (Aapke Sketch Ke Hisab Se) -->
+    <ScrollView
+        android:id="@+id/meLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/bottomNav"
+        android:layout_below="@id/topContainer"
+        android:background="#0A0B10"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <!-- Top 3 Features: Transfer, Private, Playlists -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="3"
+                android:layout_marginBottom="24dp">
+                <LinearLayout
+                    android:id="@+id/btnMeTransfer"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+                    <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_menu_share" app:tint="#00E5FF"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Transfer" android:textColor="#FFF" android:layout_marginTop="8dp"/>
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/btnMeVault"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+                    <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_secure" app:tint="#00E5FF"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Private" android:textColor="#FFF" android:layout_marginTop="8dp"/>
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/btnMePlaylists"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+                    <ImageView android:layout_width="32dp" android:layout_height="32dp" android:src="@android:drawable/ic_menu_sort_by_size" app:tint="#00E5FF"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Playlists" android:textColor="#FFF" android:layout_marginTop="8dp"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#22FFFFFF" android:layout_marginBottom="16dp"/>
+
+            <!-- List Options (History, Bin, Theme, Settings) -->
+            <TextView android:id="@+id/btnMeHistory" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="🕒  History" android:textColor="#FFF" android:textSize="18sp" android:paddingVertical="16dp"/>
+            <TextView android:id="@+id/btnMeBin" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="🗑️  Recycle Bin" android:textColor="#FFF" android:textSize="18sp" android:paddingVertical="16dp"/>
+            <TextView android:id="@+id/btnMeTheme" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="🎨  Theme" android:textColor="#FFF" android:textSize="18sp" android:paddingVertical="16dp"/>
+            <TextView android:id="@+id/btnMeSettings" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="⚙️  Settings" android:textColor="#FFF" android:textSize="18sp" android:paddingVertical="16dp"/>
+            <TextView android:id="@+id/btnMeHelp" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="❓  Help &amp; Feedback" android:textColor="#FFF" android:textSize="18sp" android:paddingVertical="16dp"/>
+            <TextView android:id="@+id/btnMeRate" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="⭐  Rate Us" android:textColor="#FFF" android:textSize="18sp" android:paddingVertical="16dp"/>
+        </LinearLayout>
+    </ScrollView>
+
     <LinearLayout
         android:id="@+id/searchLayout"
         android:layout_width="match_parent"
@@ -155,7 +204,6 @@
         android:background="#1B1C26"
         android:padding="12dp"
         android:visibility="gone">
-
         <EditText
             android:id="@+id/etSearch"
             android:layout_width="match_parent"
@@ -168,14 +216,13 @@
             android:textColorHint="#AAAAAA" />
     </LinearLayout>
 
-    <!-- MEDIA LIST -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerView"
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNav"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_above="@id/searchLayout"
-        android:layout_below="@id/topContainer"
-        android:clipToPadding="false"
-        android:paddingBottom="8dp" />
-
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:background="#1B1C26"
+        app:itemIconTint="@color/nav_item_color"
+        app:itemTextColor="@color/nav_item_color"
+        app:menu="@menu/bottom_nav_menu" />
 </RelativeLayout>
