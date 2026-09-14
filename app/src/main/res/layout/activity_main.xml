@@ -5,6 +5,7 @@
     android:layout_height="match_parent"
     android:background="#0A0B10">
 
+    <!-- UPAR KA HISSA -->
     <LinearLayout
         android:id="@+id/topContainer"
         android:layout_width="match_parent"
@@ -29,52 +30,16 @@
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+            <ImageButton
+                android:id="@+id/btnRewardTop"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
                 android:layout_alignParentEnd="true"
                 android:layout_centerVertical="true"
-                android:orientation="horizontal">
-
-                <ImageButton
-                    android:id="@+id/btnRewardTop"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_marginEnd="16dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:src="@android:drawable/btn_star"
-                    app:tint="#FFD700" />
-
-                <ImageButton
-                    android:id="@+id/btnSearchTop"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:src="@android:drawable/ic_menu_search"
-                    app:tint="#00E5FF" />
-            </LinearLayout>
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/btn_star"
+                app:tint="#FFD700" />
         </RelativeLayout>
-
-        <!-- Search Input Bar -->
-        <LinearLayout
-            android:id="@+id/searchLayout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#1B1C26"
-            android:padding="12dp"
-            android:visibility="gone">
-
-            <EditText
-                android:id="@+id/etSearch"
-                android:layout_width="match_parent"
-                android:layout_height="45dp"
-                android:background="#2A2A30"
-                android:hint="Search any Video or Audio..."
-                android:paddingHorizontal="16dp"
-                android:singleLine="true"
-                android:textColor="#FFFFFF"
-                android:textColorHint="#AAAAAA" />
-        </LinearLayout>
 
         <!-- History Strip -->
         <LinearLayout
@@ -170,17 +135,7 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Content Recycler -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_above="@id/bottomNav"
-        android:layout_below="@id/topContainer"
-        android:clipToPadding="false"
-        android:paddingBottom="8dp" />
-
-    <!-- Bottom Navigation Bar -->
+    <!-- BOTTOM NAVIGATION (Music, Video, Search, Me) -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
@@ -190,5 +145,37 @@
         app:itemIconTint="@color/nav_item_color"
         app:itemTextColor="@color/nav_item_color"
         app:menu="@menu/bottom_nav_menu" />
+
+    <!-- SEARCH BAR (Niche Shift Kar Diya Gaya Hai) -->
+    <LinearLayout
+        android:id="@+id/searchLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/bottomNav"
+        android:background="#1B1C26"
+        android:padding="12dp"
+        android:visibility="gone">
+
+        <EditText
+            android:id="@+id/etSearch"
+            android:layout_width="match_parent"
+            android:layout_height="45dp"
+            android:background="#2A2A30"
+            android:hint="Search any Video or Audio..."
+            android:paddingHorizontal="16dp"
+            android:singleLine="true"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#AAAAAA" />
+    </LinearLayout>
+
+    <!-- MEDIA LIST -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/searchLayout"
+        android:layout_below="@id/topContainer"
+        android:clipToPadding="false"
+        android:paddingBottom="8dp" />
 
 </RelativeLayout>
