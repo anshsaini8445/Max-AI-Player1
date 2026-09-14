@@ -64,44 +64,43 @@ class MainActivity : AppCompatActivity() {
             setupTopTabs()
             setupSearch()
 
+            // BYPASS TRICK APPLIED HERE
             bottomNav?.setOnItemSelectedListener { item ->
                 try {
-                    when (item.itemId) {
-                        R.id.nav_video -> {
-                            isSearching = false
-                            searchLayout?.visibility = View.GONE
-                            historyBlock?.visibility = View.VISIBLE
-                            tabLayout?.visibility = View.VISIBLE
-                            isShowingVideos = true
-                            isFolderView = false
-                            resetTabsToDefault()
-                            updateList()
-                            true
-                        }
-                        R.id.nav_music -> {
-                            isSearching = false
-                            searchLayout?.visibility = View.GONE
-                            historyBlock?.visibility = View.VISIBLE
-                            tabLayout?.visibility = View.VISIBLE
-                            isShowingVideos = false
-                            isFolderView = false
-                            resetTabsToDefault()
-                            updateList()
-                            true
-                        }
-                        R.id.nav_search -> {
-                            isSearching = true
-                            searchLayout?.visibility = View.VISIBLE
-                            historyBlock?.visibility = View.GONE
-                            tabLayout?.visibility = View.GONE
-                            filterList(etSearch?.text?.toString() ?: "")
-                            true
-                        }
-                        R.id.nav_settings -> {
-                            Toast.makeText(this, "Opening Me Settings...", Toast.LENGTH_SHORT).show()
-                            true
-                        }
-                        else -> false
+                    val searchId = resources.getIdentifier("nav_search", "id", packageName)
+                    
+                    if (item.itemId == R.id.nav_video || item.title?.toString()?.contains("Video") == true) {
+                        isSearching = false
+                        searchLayout?.visibility = View.GONE
+                        historyBlock?.visibility = View.VISIBLE
+                        tabLayout?.visibility = View.VISIBLE
+                        isShowingVideos = true
+                        isFolderView = false
+                        resetTabsToDefault()
+                        updateList()
+                        true
+                    } else if (item.itemId == R.id.nav_music || item.title?.toString()?.contains("Music") == true) {
+                        isSearching = false
+                        searchLayout?.visibility = View.GONE
+                        historyBlock?.visibility = View.VISIBLE
+                        tabLayout?.visibility = View.VISIBLE
+                        isShowingVideos = false
+                        isFolderView = false
+                        resetTabsToDefault()
+                        updateList()
+                        true
+                    } else if (item.itemId == searchId || item.title?.toString()?.contains("Search") == true) {
+                        isSearching = true
+                        searchLayout?.visibility = View.VISIBLE
+                        historyBlock?.visibility = View.GONE
+                        tabLayout?.visibility = View.GONE
+                        filterList(etSearch?.text?.toString() ?: "")
+                        true
+                    } else if (item.itemId == R.id.nav_settings || item.title?.toString()?.contains("Me") == true) {
+                        Toast.makeText(this, "Opening Me Settings...", Toast.LENGTH_SHORT).show()
+                        true
+                    } else {
+                        false
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
