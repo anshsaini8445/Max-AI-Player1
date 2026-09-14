@@ -10,7 +10,6 @@
         android:icon="@android:drawable/ic_media_ff"
         android:title="Music" />
         
-    <!-- Ye raha aapka missing Search button -->
     <item
         android:id="@+id/nav_search"
         android:icon="@android:drawable/ic_menu_search"
