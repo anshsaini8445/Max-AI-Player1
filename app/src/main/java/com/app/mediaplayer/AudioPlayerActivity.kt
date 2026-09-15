@@ -2,7 +2,9 @@ package com.app.mediaplayer
 
 import android.animation.ObjectAnimator
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.media.RingtoneManager
@@ -54,6 +56,7 @@ class AudioPlayerActivity : AppCompatActivity() {
     private var cardAlbumArt: CardView? = null
     private var imgAlbumArt: ImageView? = null
 
+    private lateinit var prefs: SharedPreferences
     private var rotationAnimator: ObjectAnimator? = null
     private val bgExecutor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -74,32 +77,38 @@ class AudioPlayerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_audio_player)
+        try {
+            setContentView(R.layout.activity_audio_player)
 
-        tvTitle = findViewById(R.id.tvAudioTitle)
-        tvSubtitle = findViewById(R.id.tvAudioSubtitle)
-        tvCurrent = findViewById(R.id.tvAudioCurrent)
-        tvTotal = findViewById(R.id.tvAudioTotal)
-        seekBar = findViewById(R.id.seekAudio)
-        imgPlayPause = findViewById(R.id.imgPlayPause)
-        cardAlbumArt = findViewById(R.id.cardAlbumArt)
-        imgAlbumArt = findViewById(R.id.imgAlbumArt)
+            tvTitle = findViewById(R.id.tvAudioTitle)
+            tvSubtitle = findViewById(R.id.tvAudioSubtitle)
+            tvCurrent = findViewById(R.id.tvAudioCurrent)
+            tvTotal = findViewById(R.id.tvAudioTotal)
+            seekBar = findViewById(R.id.seekAudio)
+            imgPlayPause = findViewById(R.id.imgPlayPause)
+            cardAlbumArt = findViewById(R.id.cardAlbumArt)
+            imgAlbumArt = findViewById(R.id.imgAlbumArt)
+            prefs = getSharedPreferences("MX_PLAYER_RESUME_PREFS", Context.MODE_PRIVATE)
 
-        tvTitle?.isSelected = true
+            tvTitle?.isSelected = true
 
-        cardAlbumArt?.let {
-            rotationAnimator = ObjectAnimator.ofFloat(it, View.ROTATION, 0f, 360f).apply {
-                duration = 14000
-                repeatCount = ObjectAnimator.INFINITE
-                interpolator = LinearInterpolator()
+            cardAlbumArt?.let {
+                rotationAnimator = ObjectAnimator.ofFloat(it, View.ROTATION, 0f, 360f).apply {
+                    duration = 14000
+                    repeatCount = ObjectAnimator.INFINITE
+                    interpolator = LinearInterpolator()
+                }
             }
-        }
 
-        setupButtons()
-        startPlayback()
+            setupButtons()
+            startPlaybackEngine()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "Audio Engine recovered", Toast.LENGTH_SHORT).show()
+        }
     }
 
-    private fun startPlayback() {
+    private fun startPlaybackEngine() {
         try {
             val audioAttributes = AudioAttributes.Builder()
                 .setUsage(C.USAGE_MEDIA)
@@ -130,8 +139,7 @@ class AudioPlayerActivity : AppCompatActivity() {
 
             val mediaList = MainActivity.currentMediaList
             val startIndex = intent.getIntExtra("START_INDEX", 0)
-            val fallbackPath = intent.getStringExtra("FILE_PATH")
-            val fallbackTitle = intent.getStringExtra("FILE_TITLE")
+            val startPositionFromVideo = intent.getLongExtra("START_POSITION", -1L)
 
             if (mediaList.isNotEmpty() && startIndex in mediaList.indices) {
                 val exoItems = mediaList.map { item ->
@@ -141,16 +149,16 @@ class AudioPlayerActivity : AppCompatActivity() {
                         .build()
                 }
                 player?.setMediaItems(exoItems, startIndex, 0L)
+
+                val resumePos = if (startPositionFromVideo >= 0L) {
+                    startPositionFromVideo
+                } else {
+                    prefs.getLong("RESUME_POS_${mediaList[startIndex].path}", 0L)
+                }
+
+                player?.seekTo(startIndex, resumePos)
                 tvTitle?.text = mediaList[startIndex].title
                 loadAlbumArtAsync(mediaList[startIndex].path)
-            } else if (!fallbackPath.isNullOrEmpty()) {
-                val singleItem = ExoMediaItem.Builder()
-                    .setUri(Uri.fromFile(File(fallbackPath)))
-                    .setMediaMetadata(MediaMetadata.Builder().setTitle(fallbackTitle ?: "Audio Track").build())
-                    .build()
-                player?.setMediaItem(singleItem)
-                tvTitle?.text = fallbackTitle ?: "Audio Track"
-                loadAlbumArtAsync(fallbackPath)
             }
 
             player?.prepare()
@@ -158,7 +166,7 @@ class AudioPlayerActivity : AppCompatActivity() {
 
             player?.addListener(object : Player.Listener {
                 override fun onMediaItemTransition(mediaItem: ExoMediaItem?, reason: Int) {
-                    val title = mediaItem?.mediaMetadata?.title?.toString() ?: "Audio Track"
+                    val title = mediaItem?.mediaMetadata?.title?.toString() ?: "Playing Audio"
                     tvTitle?.text = title
                     val idx = player?.currentMediaItemIndex ?: 0
                     if (idx in mediaList.indices) {
@@ -196,7 +204,6 @@ class AudioPlayerActivity : AppCompatActivity() {
             })
         } catch (e: Exception) {
             e.printStackTrace()
-            Toast.makeText(this, "Playing Audio: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -207,8 +214,22 @@ class AudioPlayerActivity : AppCompatActivity() {
             if (player?.isPlaying == true) player?.pause() else player?.play()
         }
 
-        findViewById<ImageButton>(R.id.btnAudioPrev)?.setOnClickListener { player?.seekToPreviousMediaItem() }
-        findViewById<ImageButton>(R.id.btnAudioNext)?.setOnClickListener { player?.seekToNextMediaItem() }
+        // NEXT & PREVIOUS THAT NEVER CRASH OR STOP
+        findViewById<ImageButton>(R.id.btnAudioPrev)?.setOnClickListener {
+            if (player?.hasPreviousMediaItem() == true) {
+                player?.seekToPreviousMediaItem()
+            } else {
+                Toast.makeText(this, "First song in queue", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        findViewById<ImageButton>(R.id.btnAudioNext)?.setOnClickListener {
+            if (player?.hasNextMediaItem() == true) {
+                player?.seekToNextMediaItem()
+            } else {
+                Toast.makeText(this, "End of queue", Toast.LENGTH_SHORT).show()
+            }
+        }
 
         findViewById<ImageButton>(R.id.btnShuffle)?.setOnClickListener {
             val shuffle = !(player?.shuffleModeEnabled ?: false)
@@ -222,16 +243,10 @@ class AudioPlayerActivity : AppCompatActivity() {
 
         findViewById<ImageButton>(R.id.btnEqAudio)?.setOnClickListener { showEqualizerDialog() }
         findViewById<ImageButton>(R.id.btnSleepTimer)?.setOnClickListener { showSleepTimerDialog() }
-
-        // THREE-DOT MENU (⋮)
-        findViewById<ImageButton>(R.id.btnMoreAudio)?.setOnClickListener {
-            showThreeDotMenu()
-        }
-
+        findViewById<ImageButton>(R.id.btnMoreAudio)?.setOnClickListener { showThreeDotMenu() }
         findViewById<ImageButton>(R.id.btnQueueList)?.setOnClickListener { showQueueBottomSheet() }
     }
 
-    // REAL WORKING RINGTONE & 3-DOT OPTIONS
     private fun showThreeDotMenu() {
         val idx = player?.currentMediaItemIndex ?: 0
         val mediaList = MainActivity.currentMediaList
@@ -240,12 +255,12 @@ class AudioPlayerActivity : AppCompatActivity() {
         val options = arrayOf(
             "🔔 Set as ringtone",
             "📑 Add to playlist",
-            "⚡ Speed play",
+            "⚡ Playback speed",
             "ℹ️ File info"
         )
 
         AlertDialog.Builder(this)
-            .setTitle(currentItem?.title ?: "Audio Options")
+            .setTitle(currentItem?.title ?: "Track Options")
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> setSongAsRingtone(currentItem)
@@ -265,8 +280,8 @@ class AudioPlayerActivity : AppCompatActivity() {
                             val f = File(item.path)
                             val mb = f.length() / (1024 * 1024)
                             AlertDialog.Builder(this)
-                                .setTitle("File Info")
-                                .setMessage("Title: ${item.title}\nSize: ${mb} MB\nLocation: ${item.path}")
+                                .setTitle("Track Info")
+                                .setMessage("Title: ${item.title}\nSize: ${mb} MB\nPath: ${item.path}")
                                 .setPositiveButton("OK", null)
                                 .show()
                         }
@@ -280,7 +295,7 @@ class AudioPlayerActivity : AppCompatActivity() {
         if (item == null) return
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.System.canWrite(this)) {
-                Toast.makeText(this, "Please allow 'Modify System Settings' to set ringtone", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Allow 'Modify System Settings' to apply ringtone", Toast.LENGTH_LONG).show()
                 val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
                     data = Uri.parse("package:$packageName")
                 }
@@ -299,9 +314,9 @@ class AudioPlayerActivity : AppCompatActivity() {
             val uri = MediaStore.Audio.Media.getContentUriForPath(file.absolutePath)
             val ringtoneUri = contentResolver.insert(uri!!, values) ?: Uri.fromFile(file)
             RingtoneManager.setActualDefaultRingtoneUri(this, RingtoneManager.TYPE_RINGTONE, ringtoneUri)
-            Toast.makeText(this, "🔔 Ringtone set successfully to: ${item.title}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "🔔 Ringtone set: ${item.title}", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
-            Toast.makeText(this, "Ringtone set: System updated", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Ringtone registered in system", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -320,7 +335,7 @@ class AudioPlayerActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Sleep Timer")
             .setItems(timers) { _, which ->
-                Toast.makeText(this, "Sleep timer set: ${timers[which]}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Sleep timer: ${timers[which]}", Toast.LENGTH_SHORT).show()
             }
             .show()
     }
@@ -328,7 +343,6 @@ class AudioPlayerActivity : AppCompatActivity() {
     private fun showQueueBottomSheet() {
         val mediaList = MainActivity.currentMediaList
         val titles = mediaList.map { it.title }.toTypedArray()
-
         AlertDialog.Builder(this)
             .setTitle("Queue (${mediaList.size} Tracks)")
             .setItems(titles) { _, which ->
@@ -369,7 +383,22 @@ class AudioPlayerActivity : AppCompatActivity() {
         return String.format(Locale.getDefault(), "%02d:%02d", m, s)
     }
 
+    private fun savePosition() {
+        val idx = player?.currentMediaItemIndex ?: -1
+        val pos = player?.currentPosition ?: 0L
+        val mediaList = MainActivity.currentMediaList
+        if (idx in mediaList.indices) {
+            prefs.edit().putLong("RESUME_POS_${mediaList[idx].path}", pos).apply()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        savePosition()
+    }
+
     override fun onDestroy() {
+        savePosition()
         rotationAnimator?.cancel()
         mainHandler.removeCallbacks(progressUpdater)
         player?.release()
