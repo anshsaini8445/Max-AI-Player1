@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- All Required Permissions -->
+    <!-- Permissions -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
@@ -11,6 +11,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
 
     <application
         android:allowBackup="true"
@@ -20,7 +21,7 @@
         android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
         tools:targetApi="34">
 
-        <!-- 1. Splash Screen Launcher -->
+        <!-- 1. Splash Screen -->
         <activity
             android:name=".SplashActivity"
             android:exported="true"
@@ -31,13 +32,13 @@
             </intent-filter>
         </activity>
 
-        <!-- 2. Main Screen (4 Bottom Tabs, Search Bar, Me Section) -->
+        <!-- 2. Main Screen -->
         <activity
             android:name=".MainActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustPan" />
 
-        <!-- 3. Super Video Player (8K/4K, Chrome Incomplete Playback, PiP, Three-Dot Menu) -->
+        <!-- 3. Super Video Player -->
         <activity
             android:name=".PlayerActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
@@ -54,7 +55,7 @@
             android:name=".SubscriptionActivity"
             android:exported="false" />
 
-        <!-- 6. Full PLAYit Style Settings Screen -->
+        <!-- 6. Full Settings Screen -->
         <activity
             android:name=".SettingsActivity"
             android:exported="false" />
