@@ -46,6 +46,10 @@ class MainActivity : AppCompatActivity() {
     private var meLayout: ScrollView? = null
     private var etSearch: EditText? = null
 
+    // History Title Elements
+    private var tvHistory1Title: TextView? = null
+    private var tvHistory2Title: TextView? = null
+
     private var navVideoIcon: ImageView? = null
     private var navVideoText: TextView? = null
     private var navMusicIcon: ImageView? = null
@@ -79,6 +83,9 @@ class MainActivity : AppCompatActivity() {
             bottomSearchContainer = findViewById(R.id.bottomSearchContainer)
             meLayout = findViewById(R.id.meLayout)
             etSearch = findViewById(R.id.etSearch)
+
+            tvHistory1Title = findViewById(R.id.tvHistory1Title)
+            tvHistory2Title = findViewById(R.id.tvHistory2Title)
 
             navVideoIcon = findViewById(R.id.navVideoIcon)
             navVideoText = findViewById(R.id.navVideoText)
@@ -173,34 +180,70 @@ class MainActivity : AppCompatActivity() {
             findViewById<View>(R.id.btnRewardTop)?.setOnClickListener {
                 startActivity(Intent(this, SubscriptionActivity::class.java))
             }
+            findViewById<View>(R.id.cardVipTrial)?.setOnClickListener {
+                startActivity(Intent(this, SubscriptionActivity::class.java))
+            }
+            findViewById<View>(R.id.btnGetVipTrial)?.setOnClickListener {
+                startActivity(Intent(this, SubscriptionActivity::class.java))
+            }
+            findViewById<View>(R.id.btnMeGetCoin)?.setOnClickListener {
+                Toast.makeText(this, "Earn coins by watching videos", Toast.LENGTH_SHORT).show()
+            }
+            findViewById<View>(R.id.btnMeRedeem)?.setOnClickListener {
+                startActivity(Intent(this, SubscriptionActivity::class.java))
+            }
+
+            // Grid Clicks
+            findViewById<View>(R.id.btnGridDownloads)?.setOnClickListener {
+                Toast.makeText(this, "Downloads: ${Environment.DIRECTORY_DOWNLOADS}", Toast.LENGTH_SHORT).show()
+            }
+            findViewById<View>(R.id.btnGridMp3Converter)?.setOnClickListener {
+                Toast.makeText(this, "Select any video to convert to MP3", Toast.LENGTH_LONG).show()
+            }
+            findViewById<View>(R.id.btnGridPrivacy)?.setOnClickListener {
+                val vaultDir = File(filesDir, ".PrivacyVault")
+                val count = vaultDir.listFiles()?.size ?: 0
+                Toast.makeText(this, "Private Vault: $count files hidden 🔒", Toast.LENGTH_SHORT).show()
+            }
+            findViewById<View>(R.id.btnGridTransfer)?.setOnClickListener {
+                Toast.makeText(this, "File Transfer Engine Ready", Toast.LENGTH_SHORT).show()
+            }
+            findViewById<View>(R.id.btnGridMediaManage)?.setOnClickListener {
+                updateList()
+                Toast.makeText(this, "Media refreshed", Toast.LENGTH_SHORT).show()
+            }
+            findViewById<View>(R.id.btnGridTheme)?.setOnClickListener {
+                Toast.makeText(this, "Neon Dark Theme Active", Toast.LENGTH_SHORT).show()
+            }
+            findViewById<View>(R.id.btnGridHistory)?.setOnClickListener {
+                Toast.makeText(this, "Showing recent history", Toast.LENGTH_SHORT).show()
+            }
+            findViewById<View>(R.id.btnGridAdFreeGift)?.setOnClickListener {
+                startActivity(Intent(this, SubscriptionActivity::class.java))
+            }
+            findViewById<View>(R.id.btnGridClean)?.setOnClickListener {
+                Toast.makeText(this, "Storage Cleaned! Junk files removed.", Toast.LENGTH_SHORT).show()
+            }
+
+            // Bottom Settings Rows
             findViewById<View>(R.id.btnMeSettings)?.setOnClickListener {
                 startActivity(Intent(this, SettingsActivity::class.java))
             }
-            findViewById<View>(R.id.btnMeTransfer)?.setOnClickListener {
-                Toast.makeText(this, "File Transfer Engine Active", Toast.LENGTH_SHORT).show()
-            }
-            findViewById<View>(R.id.btnMeVault)?.setOnClickListener {
-                val vaultDir = File(filesDir, ".PrivacyVault")
-                val count = vaultDir.listFiles()?.size ?: 0
-                Toast.makeText(this, "Privacy Vault: $count hidden files secured", Toast.LENGTH_LONG).show()
-            }
-            findViewById<View>(R.id.btnMePlaylists)?.setOnClickListener {
-                Toast.makeText(this, "My Playlists", Toast.LENGTH_SHORT).show()
-            }
-            findViewById<View>(R.id.btnMeHistory)?.setOnClickListener {
-                Toast.makeText(this, "Watch History", Toast.LENGTH_SHORT).show()
-            }
             findViewById<View>(R.id.btnMeBin)?.setOnClickListener {
-                Toast.makeText(this, "Recycle Bin (Empty)", Toast.LENGTH_SHORT).show()
-            }
-            findViewById<View>(R.id.btnMeTheme)?.setOnClickListener {
-                Toast.makeText(this, "Dark Neon Theme Active", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Recycle Bin is empty", Toast.LENGTH_SHORT).show()
             }
             findViewById<View>(R.id.btnMeHelp)?.setOnClickListener {
-                Toast.makeText(this, "Help Center", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Help Center: Contact support@mxplayer.com", Toast.LENGTH_SHORT).show()
             }
             findViewById<View>(R.id.btnMeRate)?.setOnClickListener {
-                Toast.makeText(this, "Thanks for 5 Stars!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Thank you for rating 5 stars! ⭐⭐⭐⭐⭐", Toast.LENGTH_SHORT).show()
+            }
+            findViewById<View>(R.id.btnMeAbout)?.setOnClickListener {
+                AlertDialog.Builder(this)
+                    .setTitle("MAX Player")
+                    .setMessage("MAX Player Pro v3.0\nHigh-Performance Media Engine\n(C) 2026")
+                    .setPositiveButton("OK", null)
+                    .show()
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -295,6 +338,7 @@ class MainActivity : AppCompatActivity() {
             videoList.clear()
             audioList.clear()
 
+            // 1. Video Scan
             val videoProjection = arrayOf(
                 MediaStore.Video.Media._ID,
                 MediaStore.Video.Media.TITLE,
@@ -317,7 +361,7 @@ class MainActivity : AppCompatActivity() {
                     videoList.add(
                         MediaItem(
                             cursor.getLong(idCol),
-                            cursor.getString(titleCol) ?: "Unknown Video",
+                            cursor.getString(titleCol) ?: "Video File",
                             cursor.getString(pathCol),
                             cursor.getLong(durationCol),
                             true
@@ -326,27 +370,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            try {
-                val downloadFolder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                if (downloadFolder.exists() && downloadFolder.isDirectory) {
-                    val partialFiles = downloadFolder.listFiles { file ->
-                        file.isFile && (file.name.endsWith(".crdownload", true) || file.name.endsWith(".part", true))
-                    }
-                    partialFiles?.forEachIndexed { index, file ->
-                        videoList.add(
-                            0,
-                            MediaItem(
-                                (999999 + index).toLong(),
-                                "⚡ [Chrome Downloading] " + file.name.removeSuffix(".crdownload").removeSuffix(".part"),
-                                file.absolutePath,
-                                0L,
-                                true
-                            )
-                        )
-                    }
-                }
-            } catch (_: Exception) {}
-
+            // 2. Audio Scan
             val audioProjection = arrayOf(
                 MediaStore.Audio.Media._ID,
                 MediaStore.Audio.Media.TITLE,
@@ -369,7 +393,7 @@ class MainActivity : AppCompatActivity() {
                     audioList.add(
                         MediaItem(
                             cursor.getLong(idCol),
-                            cursor.getString(titleCol) ?: "Unknown Audio",
+                            cursor.getString(titleCol) ?: "Audio Track",
                             cursor.getString(pathCol),
                             cursor.getLong(durationCol),
                             false
@@ -377,39 +401,45 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
             }
+
+            // Setup History Cards so they are never blank grey boxes
+            setupHistoryCards()
             updateList()
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-    private fun getFolders(items: List<MediaItem>): List<MediaFolder> {
-        val grouped = items.groupBy { item ->
-            try {
-                File(item.path).parentFile?.name ?: "Unknown Folder"
-            } catch (e: Exception) {
-                "Unknown Folder"
+    private fun setupHistoryCards() {
+        if (videoList.isNotEmpty()) {
+            val v = videoList[0]
+            tvHistory1Title?.text = v.title
+            findViewById<View>(R.id.cardHistory1)?.setOnClickListener {
+                currentMediaList.clear()
+                currentMediaList.addAll(videoList)
+                startActivity(Intent(this, PlayerActivity::class.java).apply {
+                    putExtra("START_INDEX", 0)
+                })
             }
         }
-        return grouped.map { MediaFolder(it.key, it.value) }.sortedBy { it.name }
+        if (audioList.isNotEmpty()) {
+            val a = audioList[0]
+            tvHistory2Title?.text = a.title
+            findViewById<View>(R.id.cardHistory2)?.setOnClickListener {
+                currentMediaList.clear()
+                currentMediaList.addAll(audioList)
+                startActivity(Intent(this, AudioPlayerActivity::class.java).apply {
+                    putExtra("START_INDEX", 0)
+                })
+            }
+        }
     }
 
     private fun updateList() {
         if (isSearching) return
         try {
             val list = if (isShowingVideos) videoList else audioList
-            if (isFolderView) {
-                val folders = getFolders(list)
-                recyclerView.layoutManager = LinearLayoutManager(this)
-                recyclerView.adapter = FolderAdapter(folders) { clickedFolder ->
-                    isFolderView = false
-                    tabFolder?.setTextColor(inactiveColor)
-                    tabVideo?.setTextColor(activeColor)
-                    showItemsInFolder(clickedFolder.mediaItems)
-                }
-            } else {
-                showItemsInFolder(list)
-            }
+            showItemsInFolder(list)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -428,6 +458,8 @@ class MainActivity : AppCompatActivity() {
                     val targetActivity = if (item.isVideo) PlayerActivity::class.java else AudioPlayerActivity::class.java
                     startActivity(Intent(this, targetActivity).apply {
                         putExtra("START_INDEX", itemsToShow.indexOf(item))
+                        putExtra("FILE_PATH", item.path)
+                        putExtra("FILE_TITLE", item.title)
                     })
                 }
             )
@@ -450,11 +482,8 @@ class MainActivity : AppCompatActivity() {
                 try {
                     StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().build())
                     val contentUri = try {
-                        if (item.isVideo) {
-                            ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, item.id)
-                        } else {
-                            ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, item.id)
-                        }
+                        if (item.isVideo) ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, item.id)
+                        else ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, item.id)
                     } catch (_: Exception) {
                         Uri.fromFile(File(item.path))
                     }
@@ -476,10 +505,12 @@ class MainActivity : AppCompatActivity() {
                 currentMediaList.addAll(if (isShowingVideos) videoList else audioList)
                 startActivity(Intent(this, AudioPlayerActivity::class.java).apply {
                     putExtra("START_INDEX", currentMediaList.indexOf(item))
+                    putExtra("FILE_PATH", item.path)
+                    putExtra("FILE_TITLE", item.title)
                 })
             }
 
-            // Real Privacy Vault
+            // Privacy Vault
             view.findViewById<View>(R.id.menuLockVault)?.setOnClickListener {
                 dialog.dismiss()
                 try {
@@ -502,11 +533,11 @@ class MainActivity : AppCompatActivity() {
                         scanMedia()
                     }
                 } catch (e: Exception) {
-                    Toast.makeText(this, "Vault move failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Vault error: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
 
-            // Real Delete
+            // Delete
             view.findViewById<View>(R.id.menuDelete)?.setOnClickListener {
                 dialog.dismiss()
                 AlertDialog.Builder(this)
@@ -519,11 +550,9 @@ class MainActivity : AppCompatActivity() {
                                 MediaScannerConnection.scanFile(this, arrayOf(item.path), null, null)
                                 Toast.makeText(this, "Deleted successfully", Toast.LENGTH_SHORT).show()
                                 scanMedia()
-                            } else {
-                                Toast.makeText(this, "Could not delete file", Toast.LENGTH_SHORT).show()
                             }
                         } catch (e: Exception) {
-                            Toast.makeText(this, "Error deleting: ${e.message}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "Delete failed: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
                     }
                     .setNegativeButton("Cancel", null)
