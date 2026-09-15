@@ -2,7 +2,9 @@ package com.app.mediaplayer
 
 import android.app.PictureInPictureParams
 import android.content.ContentUris
+import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.media.MediaScannerConnection
@@ -50,6 +52,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private var player: ExoPlayer? = null
     private lateinit var playerView: PlayerView
+    private lateinit var prefs: SharedPreferences
 
     private var isLocked = false
     private var isMuted = false
@@ -67,8 +70,9 @@ class PlayerActivity : AppCompatActivity() {
 
             setContentView(R.layout.activity_player)
             playerView = findViewById(R.id.playerView)
+            prefs = getSharedPreferences("MX_PLAYER_RESUME_PREFS", Context.MODE_PRIVATE)
 
-            initializeSuperEnginePlayer()
+            initializePlayerEngine()
             setupControls()
         } catch (e: Exception) {
             e.printStackTrace()
@@ -76,7 +80,7 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun initializeSuperEnginePlayer() {
+    private fun initializePlayerEngine() {
         val renderersFactory = DefaultRenderersFactory(this).apply {
             setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
             setEnableDecoderFallback(true)
@@ -132,32 +136,35 @@ class PlayerActivity : AppCompatActivity() {
                 progressiveMediaSourceFactory.createMediaSource(exoItem)
             }
 
-            player?.setMediaSources(mediaSources, startIndex, 0L)
+            // Exact Millisecond Saved Resume Position
+            val targetPath = mediaList[startIndex].path
+            val savedPositionMs = prefs.getLong("RESUME_POS_$targetPath", 0L)
+
+            player?.setMediaSources(mediaSources, startIndex, savedPositionMs)
             player?.prepare()
             player?.play()
+
+            if (savedPositionMs > 1000L) {
+                Toast.makeText(this, "Resumed playback", Toast.LENGTH_SHORT).show()
+            }
         }
 
         val tvTitle = playerView.findViewById<TextView>(R.id.tvVideoTitle)
         player?.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: ExoMediaItem?, reason: Int) {
-                tvTitle?.text = mediaItem?.mediaMetadata?.title?.toString() ?: "Playing Media"
+                tvTitle?.text = mediaItem?.mediaMetadata?.title?.toString() ?: "Playing Video"
                 tvTitle?.isSelected = true
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                Toast.makeText(this@PlayerActivity, "Playback recovered smoothly", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@PlayerActivity, "Codec fallback recovered", Toast.LENGTH_SHORT).show()
             }
         })
     }
 
     private fun setupControls() {
         playerView.findViewById<ImageButton>(R.id.btnBack)?.setOnClickListener { finish() }
-
-        // Top Right Three-Dot Menu (⋮)
-        playerView.findViewById<ImageButton>(R.id.btnMoreSettings)?.setOnClickListener {
-            showPlayitStyleBottomSheet()
-        }
-
+        playerView.findViewById<ImageButton>(R.id.btnMoreSettings)?.setOnClickListener { showThreeDotMenu() }
         playerView.findViewById<ImageButton>(R.id.btnPlaylistVideo)?.setOnClickListener { showPlaylistQueue() }
 
         playerView.findViewById<ImageButton>(R.id.btnAudioOnly)?.setOnClickListener {
@@ -179,7 +186,7 @@ class PlayerActivity : AppCompatActivity() {
         playerView.findViewById<View>(R.id.cardUnlock)?.setOnClickListener { setControlsLocked(false) }
 
         playerView.findViewById<View>(R.id.cardCut)?.setOnClickListener {
-            Toast.makeText(this, "Video Cutter: Select start & end time", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Video Cutter: Ready", Toast.LENGTH_SHORT).show()
         }
 
         playerView.findViewById<View>(R.id.cardRotate)?.setOnClickListener {
@@ -212,6 +219,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun switchToAudioPlayer() {
+        saveCurrentPosition()
         val currentIdx = player?.currentMediaItemIndex ?: 0
         val currentPos = player?.currentPosition ?: 0L
         player?.pause()
@@ -238,19 +246,16 @@ class PlayerActivity : AppCompatActivity() {
             rightBar?.visibility = View.GONE
             bottomBar?.visibility = View.GONE
             unlockBtn?.visibility = View.VISIBLE
-            Toast.makeText(this, "Screen Locked", Toast.LENGTH_SHORT).show()
         } else {
             topBar?.visibility = View.VISIBLE
             leftBar?.visibility = View.VISIBLE
             rightBar?.visibility = View.VISIBLE
             bottomBar?.visibility = View.VISIBLE
             unlockBtn?.visibility = View.GONE
-            Toast.makeText(this, "Screen Unlocked", Toast.LENGTH_SHORT).show()
         }
     }
 
-    // Three-Dot Menu: Real Share, Play as Audio, Privacy Folder, Delete
-    private fun showPlayitStyleBottomSheet() {
+    private fun showThreeDotMenu() {
         try {
             val dialog = BottomSheetDialog(this)
             val view = layoutInflater.inflate(R.layout.dialog_list_menu, null)
@@ -260,9 +265,9 @@ class PlayerActivity : AppCompatActivity() {
             val mediaList = MainActivity.currentMediaList
             val currentItem = if (currentIndex in mediaList.indices) mediaList[currentIndex] else null
 
-            view.findViewById<TextView>(R.id.menuMediaTitle)?.text = currentItem?.title ?: "Playing Video"
+            view.findViewById<TextView>(R.id.menuMediaTitle)?.text = currentItem?.title ?: "Video Options"
 
-            // 1. Real Sharing without needing file_paths.xml
+            // Share
             view.findViewById<View>(R.id.menuShare)?.setOnClickListener {
                 dialog.dismiss()
                 currentItem?.let { item ->
@@ -280,18 +285,18 @@ class PlayerActivity : AppCompatActivity() {
                         }
                         startActivity(Intent.createChooser(shareIntent, "Share Video via:"))
                     } catch (e: Exception) {
-                        Toast.makeText(this, "Share failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Share error: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
 
-            // 2. Play As Audio
+            // Play As Audio
             view.findViewById<View>(R.id.menuPlayAudio)?.setOnClickListener {
                 dialog.dismiss()
                 switchToAudioPlayer()
             }
 
-            // 3. Real Privacy Vault Move
+            // Privacy Vault Move
             view.findViewById<View>(R.id.menuLockVault)?.setOnClickListener {
                 dialog.dismiss()
                 currentItem?.let { item ->
@@ -312,21 +317,21 @@ class PlayerActivity : AppCompatActivity() {
 
                             MediaScannerConnection.scanFile(this, arrayOf(oldPath), null, null)
                             MainActivity.currentMediaList.removeAt(currentIndex)
-                            Toast.makeText(this, "Moved to Private Vault successfully!", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this, "Moved to Private Vault!", Toast.LENGTH_SHORT).show()
 
                             if (MainActivity.currentMediaList.isNotEmpty()) {
-                                initializeSuperEnginePlayer()
+                                initializePlayerEngine()
                             } else {
                                 finish()
                             }
                         }
                     } catch (e: Exception) {
-                        Toast.makeText(this, "Move error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Vault error: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
 
-            // 4. Real Delete
+            // Real Delete
             view.findViewById<View>(R.id.menuDelete)?.setOnClickListener {
                 dialog.dismiss()
                 currentItem?.let { item ->
@@ -344,12 +349,10 @@ class PlayerActivity : AppCompatActivity() {
                                     if (MainActivity.currentMediaList.isNotEmpty()) {
                                         val nextIndex = if (currentIndex >= MainActivity.currentMediaList.size) 0 else currentIndex
                                         player?.seekTo(nextIndex, 0L)
-                                        initializeSuperEnginePlayer()
+                                        initializePlayerEngine()
                                     } else {
                                         finish()
                                     }
-                                } else {
-                                    Toast.makeText(this, "Could not delete file", Toast.LENGTH_SHORT).show()
                                 }
                             } catch (e: Exception) {
                                 Toast.makeText(this, "Delete failed: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -386,8 +389,6 @@ class PlayerActivity : AppCompatActivity() {
                 .setAspectRatio(Rational(16, 9))
                 .build()
             enterPictureInPictureMode(params)
-        } else {
-            Toast.makeText(this, "Requires Android 8.0+", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -407,14 +408,32 @@ class PlayerActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun saveCurrentPosition() {
+        val currentIndex = player?.currentMediaItemIndex ?: -1
+        val currentPositionMs = player?.currentPosition ?: 0L
+        val mediaList = MainActivity.currentMediaList
+        if (currentIndex in mediaList.indices) {
+            val path = mediaList[currentIndex].path
+            prefs.edit().putLong("RESUME_POS_$path", currentPositionMs).apply()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        saveCurrentPosition()
+        player?.pause()
+    }
+
     override fun onStop() {
         super.onStop()
+        saveCurrentPosition()
         player?.pause()
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        saveCurrentPosition()
         player?.release()
         player = null
+        super.onDestroy()
     }
 }
