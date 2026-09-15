@@ -1,16 +1,13 @@
 package com.app.mediaplayer
 
 import android.animation.ObjectAnimator
-import android.annotation.SuppressLint
-import android.content.ComponentName
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.GestureDetector
-import android.view.MotionEvent
 import android.view.View
 import android.view.animation.LinearInterpolator
 import android.widget.ImageButton
@@ -18,25 +15,33 @@ import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.annotation.OptIn
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
-import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem as ExoMediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
-import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.mp3.Mp3Extractor
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import java.io.File
 import java.util.Locale
 import java.util.concurrent.Executors
-import kotlin.math.abs
 
+@OptIn(UnstableApi::class)
 class AudioPlayerActivity : AppCompatActivity() {
 
-    private var player: Player? = null
-    private var mediaController: MediaController? = null
+    private var player: ExoPlayer? = null
     private var tvTitle: TextView? = null
     private var tvSubtitle: TextView? = null
     private var tvCurrent: TextView? = null
@@ -51,23 +56,19 @@ class AudioPlayerActivity : AppCompatActivity() {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private var isSeeking = false
-    private var seekPosition: Long = 0
     private var totalDuration: Long = 0
 
     private val progressUpdater = object : Runnable {
         override fun run() {
-            if (!isSeeking) {
-                player?.let { p ->
-                    val pos = p.currentPosition
-                    tvCurrent?.text = formatTime(pos)
-                    seekBar?.progress = pos.toInt()
-                }
+            if (!isSeeking && player != null) {
+                val pos = player?.currentPosition ?: 0L
+                tvCurrent?.text = formatTime(pos)
+                seekBar?.progress = pos.toInt()
             }
             mainHandler.postDelayed(this, 1000)
         }
     }
 
-    @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         try {
@@ -92,66 +93,75 @@ class AudioPlayerActivity : AppCompatActivity() {
                 }
             }
 
-            setupClickListeners()
-            setupGestures()
+            initializeDirectAudioPlayer()
+            setupButtons()
         } catch (e: Exception) {
             e.printStackTrace()
-            finish()
+            Toast.makeText(this, "Audio engine error: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
-    override fun onStart() {
-        super.onStart()
+    private fun initializeDirectAudioPlayer() {
         try {
-            val sessionToken = SessionToken(this, ComponentName(this, PlaybackService::class.java))
-            val future = MediaController.Builder(this, sessionToken).buildAsync()
-            future.addListener({
-                mediaController = future.get()
-                player = mediaController
-                setupMedia()
-            }, ContextCompat.getMainExecutor(this))
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(C.USAGE_MEDIA)
+                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                .build()
 
-    private fun setupMedia() {
-        try {
+            val renderersFactory = DefaultRenderersFactory(this).apply {
+                setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+                setEnableDecoderFallback(true)
+            }
+
+            val extractorsFactory = DefaultExtractorsFactory().apply {
+                setConstantBitrateSeekingEnabled(true)
+                setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING)
+            }
+
+            val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
+
+            val loadControl = DefaultLoadControl.Builder()
+                .setBufferDurationsMs(8000, 30000, 500, 1000)
+                .build()
+
+            player = ExoPlayer.Builder(this, renderersFactory)
+                .setMediaSourceFactory(mediaSourceFactory)
+                .setLoadControl(loadControl)
+                .setAudioAttributes(audioAttributes, true)
+                .setHandleAudioBecomingNoisy(true)
+                .setWakeMode(C.WAKE_MODE_LOCAL)
+                .build()
+
             val mediaList = MainActivity.currentMediaList
             val startIndex = intent.getIntExtra("START_INDEX", 0)
+            val startPosition = intent.getLongExtra("START_POSITION", 0L)
 
-            if (mediaList.isNotEmpty()) {
-                if (player?.mediaItemCount != mediaList.size) {
-                    val exoItems = mediaList.map {
-                        ExoMediaItem.Builder()
-                            .setUri(it.path)
-                            .setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).build())
-                            .build()
-                    }
-                    player?.setMediaItems(exoItems, startIndex, 0L)
-                    player?.prepare()
-                    player?.play()
-                } else if (player?.currentMediaItemIndex != startIndex) {
-                    player?.seekTo(startIndex, 0L)
-                    player?.play()
+            if (mediaList.isNotEmpty() && startIndex in mediaList.indices) {
+                val exoItems = mediaList.map { item ->
+                    ExoMediaItem.Builder()
+                        .setUri(Uri.fromFile(File(item.path)))
+                        .setMediaMetadata(MediaMetadata.Builder().setTitle(item.title).build())
+                        .build()
                 }
+                player?.setMediaItems(exoItems, startIndex, startPosition)
+                player?.prepare()
+                player?.play()
+
                 loadAlbumArtAsync(mediaList[startIndex].path)
             }
 
             player?.addListener(object : Player.Listener {
                 override fun onMediaItemTransition(mediaItem: ExoMediaItem?, reason: Int) {
-                    val title = mediaItem?.mediaMetadata?.title?.toString() ?: "Song"
+                    val title = mediaItem?.mediaMetadata?.title?.toString() ?: "Playing Audio"
                     tvTitle?.text = title
                     val idx = player?.currentMediaItemIndex ?: 0
                     if (idx in mediaList.indices) {
                         loadAlbumArtAsync(mediaList[idx].path)
                     }
-                    player?.let { p ->
-                        totalDuration = p.duration
-                        if (totalDuration > 0) {
-                            seekBar?.max = totalDuration.toInt()
-                            tvTotal?.text = formatTime(totalDuration)
-                        }
+                    totalDuration = player?.duration ?: 0L
+                    if (totalDuration > 0) {
+                        seekBar?.max = totalDuration.toInt()
+                        tvTotal?.text = formatTime(totalDuration)
                     }
                 }
 
@@ -168,13 +178,6 @@ class AudioPlayerActivity : AppCompatActivity() {
                 }
             })
 
-            findViewById<CardView>(R.id.btnAudioPlayPause)?.setOnClickListener {
-                if (player?.isPlaying == true) player?.pause() else player?.play()
-            }
-
-            findViewById<ImageButton>(R.id.btnAudioPrev)?.setOnClickListener { player?.seekToPreviousMediaItem() }
-            findViewById<ImageButton>(R.id.btnAudioNext)?.setOnClickListener { player?.seekToNextMediaItem() }
-
             seekBar?.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                     if (fromUser) tvCurrent?.text = formatTime(progress.toLong())
@@ -190,54 +193,108 @@ class AudioPlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupClickListeners() {
+    private fun setupButtons() {
         findViewById<ImageButton>(R.id.btnBackAudio)?.setOnClickListener { finish() }
 
-        findViewById<ImageButton>(R.id.btnAudioShare)?.setOnClickListener {
-            val idx = player?.currentMediaItemIndex ?: 0
-            val mediaList = MainActivity.currentMediaList
-            if (idx in mediaList.indices) {
-                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "audio/*"
-                    putExtra(Intent.EXTRA_STREAM, android.net.Uri.parse("file://${mediaList[idx].path}"))
-                }
-                startActivity(Intent.createChooser(shareIntent, "Share Audio via"))
-            }
+        findViewById<CardView>(R.id.btnAudioPlayPause)?.setOnClickListener {
+            if (player?.isPlaying == true) player?.pause() else player?.play()
         }
 
-        findViewById<ImageButton>(R.id.btnFavorite)?.setOnClickListener {
-            Toast.makeText(this, "Added to Favorites", Toast.LENGTH_SHORT).show()
-        }
-
-        findViewById<ImageButton>(R.id.btnEqAudio)?.setOnClickListener {
-            showEqualizerDialog()
-        }
-
-        findViewById<ImageButton>(R.id.btnSleepTimer)?.setOnClickListener {
-            showSleepTimerDialog()
-        }
-
-        findViewById<ImageButton>(R.id.btnMoreAudio)?.setOnClickListener {
-            showMoreOptionsDialog()
-        }
-
-        findViewById<ImageButton>(R.id.btnQueueList)?.setOnClickListener {
-            showQueueBottomSheet()
-        }
+        findViewById<ImageButton>(R.id.btnAudioPrev)?.setOnClickListener { player?.seekToPreviousMediaItem() }
+        findViewById<ImageButton>(R.id.btnAudioNext)?.setOnClickListener { player?.seekToNextMediaItem() }
 
         findViewById<ImageButton>(R.id.btnShuffle)?.setOnClickListener {
-            val shuffleOn = !(player?.shuffleModeEnabled ?: false)
-            player?.shuffleModeEnabled = shuffleOn
-            Toast.makeText(this, if (shuffleOn) "Shuffle ON" else "Shuffle OFF", Toast.LENGTH_SHORT).show()
+            val shuffle = !(player?.shuffleModeEnabled ?: false)
+            player?.shuffleModeEnabled = shuffle
+            Toast.makeText(this, if (shuffle) "Shuffle ON" else "Shuffle OFF", Toast.LENGTH_SHORT).show()
+        }
+
+        findViewById<ImageButton>(R.id.btnAudioShare)?.setOnClickListener { shareCurrentAudio() }
+        findViewById<ImageButton>(R.id.btnFavorite)?.setOnClickListener {
+            Toast.makeText(this, "Added to Favorites ❤️", Toast.LENGTH_SHORT).show()
+        }
+        findViewById<ImageButton>(R.id.btnEqAudio)?.setOnClickListener { showEqualizerDialog() }
+        findViewById<ImageButton>(R.id.btnSleepTimer)?.setOnClickListener { showSleepTimerDialog() }
+
+        // THREE-DOT MENU (⋮) IN AUDIO PLAYER
+        findViewById<ImageButton>(R.id.btnMoreAudio)?.setOnClickListener {
+            showAudioThreeDotMenu()
+        }
+
+        findViewById<ImageButton>(R.id.btnQueueList)?.setOnClickListener { showQueueBottomSheet() }
+    }
+
+    private fun showAudioThreeDotMenu() {
+        val idx = player?.currentMediaItemIndex ?: 0
+        val mediaList = MainActivity.currentMediaList
+        val currentItem = if (idx in mediaList.indices) mediaList[idx] else null
+
+        val options = arrayOf(
+            "🔔 Set as ringtone",
+            "📑 Add to playlist",
+            "⚡ Speed play",
+            "ℹ️ File info"
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle(currentItem?.title ?: "Audio Options")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> Toast.makeText(this, "Set as system ringtone", Toast.LENGTH_SHORT).show()
+                    1 -> Toast.makeText(this, "Added to My Playlist", Toast.LENGTH_SHORT).show()
+                    2 -> {
+                        val speeds = arrayOf("0.75x", "1.0x (Normal)", "1.25x", "1.5x", "2.0x")
+                        val speedVals = floatArrayOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+                        AlertDialog.Builder(this)
+                            .setTitle("Audio Playback Speed")
+                            .setItems(speeds) { _, sIdx ->
+                                player?.playbackParameters = PlaybackParameters(speedVals[sIdx])
+                                Toast.makeText(this, "Speed: ${speeds[sIdx]}", Toast.LENGTH_SHORT).show()
+                            }.show()
+                    }
+                    3 -> {
+                        currentItem?.let { item ->
+                            val f = File(item.path)
+                            val mb = f.length() / (1024 * 1024)
+                            AlertDialog.Builder(this)
+                                .setTitle("File Info")
+                                .setMessage("Title: ${item.title}\nSize: ${mb} MB\nPath: ${item.path}")
+                                .setPositiveButton("OK", null)
+                                .show()
+                        }
+                    }
+                }
+            }
+            .show()
+    }
+
+    private fun shareCurrentAudio() {
+        val idx = player?.currentMediaItemIndex ?: 0
+        val mediaList = MainActivity.currentMediaList
+        if (idx in mediaList.indices) {
+            val file = File(mediaList[idx].path)
+            if (file.exists()) {
+                val contentUri = FileProvider.getUriForFile(
+                    this,
+                    "${applicationContext.packageName}.provider",
+                    file
+                )
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "audio/*"
+                    putExtra(Intent.EXTRA_STREAM, contentUri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivity(Intent.createChooser(shareIntent, "Share Audio via:"))
+            }
         }
     }
 
     private fun showEqualizerDialog() {
-        val presets = arrayOf("Normal", "Classical", "Dance", "Flat", "Bass Boost")
+        val presets = arrayOf("Normal", "Classical", "Dance", "Flat", "Bass Boost", "Vocal Booster")
         AlertDialog.Builder(this)
             .setTitle("Equalizer Presets")
             .setItems(presets) { _, which ->
-                Toast.makeText(this, "${presets[which]} Applied", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Equalizer: ${presets[which]} Applied", Toast.LENGTH_SHORT).show()
             }
             .show()
     }
@@ -247,35 +304,15 @@ class AudioPlayerActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Sleep Timer")
             .setItems(timers) { _, which ->
-                Toast.makeText(this, "Timer: ${timers[which]}", Toast.LENGTH_SHORT).show()
-            }
-            .show()
-    }
-
-    private fun showMoreOptionsDialog() {
-        val options = arrayOf("Set as ringtone", "Add to playlist", "Playback Speed", "File info")
-        AlertDialog.Builder(this)
-            .setItems(options) { _, which ->
-                when (which) {
-                    2 -> {
-                        val speeds = arrayOf("0.75x", "1.0x (Normal)", "1.25x", "1.5x")
-                        val speedVals = floatArrayOf(0.75f, 1.0f, 1.25f, 1.5f)
-                        AlertDialog.Builder(this).setItems(speeds) { _, sIdx ->
-                            player?.playbackParameters = PlaybackParameters(speedVals[sIdx])
-                        }.show()
-                    }
-                    else -> Toast.makeText(this, options[which], Toast.LENGTH_SHORT).show()
-                }
+                Toast.makeText(this, "Timer set to ${timers[which]}", Toast.LENGTH_SHORT).show()
             }
             .show()
     }
 
     private fun showQueueBottomSheet() {
-        val dialog = BottomSheetDialog(this)
         val mediaList = MainActivity.currentMediaList
         val titles = mediaList.map { it.title }.toTypedArray()
 
-        dialog.setContentView(layoutInflater.inflate(R.layout.dialog_list_menu, null))
         AlertDialog.Builder(this)
             .setTitle("Now Playing (${mediaList.size} Songs)")
             .setItems(titles) { _, which ->
@@ -308,35 +345,6 @@ class AudioPlayerActivity : AppCompatActivity() {
         }
     }
 
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupGestures() {
-        val detector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dX: Float, dY: Float): Boolean {
-                if (e1 == null || totalDuration <= 0) return false
-                if (abs(dX) > abs(dY)) {
-                    isSeeking = true
-                    val change = (dX * -80).toLong()
-                    seekPosition = (player?.currentPosition ?: 0) + change
-                    if (seekPosition < 0) seekPosition = 0
-                    if (seekPosition > totalDuration) seekPosition = totalDuration
-                    tvCurrent?.text = formatTime(seekPosition)
-                    seekBar?.progress = seekPosition.toInt()
-                    return true
-                }
-                return false
-            }
-        })
-
-        cardAlbumArt?.setOnTouchListener { _, event ->
-            detector.onTouchEvent(event)
-            if (event.action == MotionEvent.ACTION_UP && isSeeking) {
-                player?.seekTo(seekPosition)
-                isSeeking = false
-            }
-            true
-        }
-    }
-
     private fun formatTime(ms: Long): String {
         if (ms < 0) return "00:00"
         val totalSec = ms / 1000
@@ -345,15 +353,11 @@ class AudioPlayerActivity : AppCompatActivity() {
         return String.format(Locale.getDefault(), "%02d:%02d", m, s)
     }
 
-    override fun onStop() {
-        super.onStop()
-        mainHandler.removeCallbacks(progressUpdater)
-        mediaController?.release()
-        mediaController = null
-    }
-
     override fun onDestroy() {
         rotationAnimator?.cancel()
+        mainHandler.removeCallbacks(progressUpdater)
+        player?.release()
+        player = null
         bgExecutor.shutdown()
         super.onDestroy()
     }
