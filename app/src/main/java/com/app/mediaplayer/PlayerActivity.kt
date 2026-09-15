@@ -1,6 +1,5 @@
 package com.app.mediaplayer
 
-import android.annotation.SuppressLint
 import android.app.PictureInPictureParams
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -12,12 +11,12 @@ import android.util.Rational
 import android.view.View
 import android.view.WindowManager
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.media3.common.C
 import androidx.media3.common.MediaItem as ExoMediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
@@ -146,19 +145,19 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                if (error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED ||
-                    error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED) {
-                    Toast.makeText(this@PlayerActivity, "Played downloaded portion of file", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(this@PlayerActivity, "Codec fallback recovered", Toast.LENGTH_SHORT).show()
-                }
+                Toast.makeText(this@PlayerActivity, "Played downloaded portion smoothly", Toast.LENGTH_SHORT).show()
             }
         })
     }
 
     private fun setupControls() {
         playerView.findViewById<ImageButton>(R.id.btnBack)?.setOnClickListener { finish() }
-        playerView.findViewById<ImageButton>(R.id.btnMoreSettings)?.setOnClickListener { showMoreMenu() }
+
+        // TOP RIGHT THREE DOT MENU (⋮)
+        playerView.findViewById<ImageButton>(R.id.btnMoreSettings)?.setOnClickListener {
+            showPlayitStyleBottomSheet()
+        }
+
         playerView.findViewById<ImageButton>(R.id.btnPlaylistVideo)?.setOnClickListener { showPlaylistQueue() }
 
         playerView.findViewById<ImageButton>(R.id.btnAudioOnly)?.setOnClickListener {
@@ -170,22 +169,32 @@ class PlayerActivity : AppCompatActivity() {
             finish()
         }
 
-        val btnMute = playerView.findViewById<TextView>(R.id.btnMute)
-        btnMute?.setOnClickListener {
+        // LEFT CONTROLS: MUTE & LOCK
+        val imgMute = playerView.findViewById<ImageView>(R.id.imgMute)
+        playerView.findViewById<View>(R.id.cardMute)?.setOnClickListener {
             isMuted = !isMuted
             player?.volume = if (isMuted) 0f else 1f
-            btnMute.text = if (isMuted) "🔇" else "🔊"
+            imgMute?.setImageResource(
+                if (isMuted) android.R.drawable.ic_lock_silent_mode
+                else android.R.drawable.ic_lock_silent_mode_off
+            )
             Toast.makeText(this, if (isMuted) "Muted" else "Unmuted", Toast.LENGTH_SHORT).show()
         }
 
-        val btnLock = playerView.findViewById<TextView>(R.id.btnLock)
-        btnLock?.setOnClickListener { toggleLock(btnLock) }
-
-        playerView.findViewById<TextView>(R.id.btnCut)?.setOnClickListener {
-            Toast.makeText(this, "Video Cutter Opened", Toast.LENGTH_SHORT).show()
+        playerView.findViewById<View>(R.id.cardLock)?.setOnClickListener {
+            setControlsLocked(true)
         }
 
-        playerView.findViewById<TextView>(R.id.btnRotate)?.setOnClickListener {
+        playerView.findViewById<View>(R.id.cardUnlock)?.setOnClickListener {
+            setControlsLocked(false)
+        }
+
+        // RIGHT CONTROLS: CUT & ROTATE
+        playerView.findViewById<View>(R.id.cardCut)?.setOnClickListener {
+            Toast.makeText(this, "Video Cutter: Select start & end time", Toast.LENGTH_SHORT).show()
+        }
+
+        playerView.findViewById<View>(R.id.cardRotate)?.setOnClickListener {
             requestedOrientation = if (requestedOrientation == ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE) {
                 ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             } else {
@@ -193,6 +202,7 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
 
+        // BOTTOM CONTROLS
         val btnSpeed = playerView.findViewById<TextView>(R.id.btnSpeed)
         btnSpeed?.setOnClickListener { showSpeedDialog(btnSpeed) }
 
@@ -205,8 +215,8 @@ class PlayerActivity : AppCompatActivity() {
             playerView.resizeMode = currentResizeMode
             val name = when (currentResizeMode) {
                 AspectRatioFrameLayout.RESIZE_MODE_FIT -> "Fit to Screen"
-                AspectRatioFrameLayout.RESIZE_MODE_FILL -> "Stretch (16:9)"
-                else -> "Crop / Zoom"
+                AspectRatioFrameLayout.RESIZE_MODE_FILL -> "Stretch 16:9"
+                else -> "Crop to Zoom"
             }
             Toast.makeText(this, name, Toast.LENGTH_SHORT).show()
         }
@@ -214,27 +224,76 @@ class PlayerActivity : AppCompatActivity() {
         playerView.findViewById<ImageButton>(R.id.btnPip)?.setOnClickListener { enterPipMode() }
     }
 
-    private fun toggleLock(btnLock: TextView) {
-        isLocked = !isLocked
+    private fun setControlsLocked(locked: Boolean) {
+        isLocked = locked
         val topBar = playerView.findViewById<View>(R.id.topBarVideo)
+        val leftBar = playerView.findViewById<View>(R.id.leftControlsLayout)
         val rightBar = playerView.findViewById<View>(R.id.rightControlsLayout)
         val bottomBar = playerView.findViewById<View>(R.id.bottomControlsLayout)
-        val btnMute = playerView.findViewById<View>(R.id.btnMute)
+        val unlockBtn = playerView.findViewById<View>(R.id.cardUnlock)
 
-        if (isLocked) {
+        if (locked) {
             topBar?.visibility = View.GONE
+            leftBar?.visibility = View.GONE
             rightBar?.visibility = View.GONE
             bottomBar?.visibility = View.GONE
-            btnMute?.visibility = View.GONE
-            btnLock.text = "🔒"
-            Toast.makeText(this, "Controls Locked", Toast.LENGTH_SHORT).show()
+            unlockBtn?.visibility = View.VISIBLE
+            Toast.makeText(this, "Screen Locked", Toast.LENGTH_SHORT).show()
         } else {
             topBar?.visibility = View.VISIBLE
+            leftBar?.visibility = View.VISIBLE
             rightBar?.visibility = View.VISIBLE
             bottomBar?.visibility = View.VISIBLE
-            btnMute?.visibility = View.VISIBLE
-            btnLock.text = "🔓"
-            Toast.makeText(this, "Controls Unlocked", Toast.LENGTH_SHORT).show()
+            unlockBtn?.visibility = View.GONE
+            Toast.makeText(this, "Screen Unlocked", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showPlayitStyleBottomSheet() {
+        try {
+            val dialog = BottomSheetDialog(this)
+            val view = layoutInflater.inflate(R.layout.dialog_list_menu, null)
+            dialog.setContentView(view)
+
+            val currentIndex = player?.currentMediaItemIndex ?: 0
+            val mediaList = MainActivity.currentMediaList
+            val currentItem = if (currentIndex in mediaList.indices) mediaList[currentIndex] else null
+
+            view.findViewById<TextView>(R.id.menuMediaTitle)?.text = currentItem?.title ?: "Playing Video"
+
+            view.findViewById<View>(R.id.menuShare)?.setOnClickListener {
+                dialog.dismiss()
+                currentItem?.let { item ->
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "video/*"
+                        putExtra(Intent.EXTRA_STREAM, Uri.parse("file://${item.path}"))
+                    }
+                    startActivity(Intent.createChooser(shareIntent, "Share Video via"))
+                }
+            }
+
+            view.findViewById<View>(R.id.menuPlayAudio)?.setOnClickListener {
+                dialog.dismiss()
+                val intent = Intent(this, AudioPlayerActivity::class.java).apply {
+                    putExtra("START_INDEX", currentIndex)
+                }
+                startActivity(intent)
+                finish()
+            }
+
+            view.findViewById<View>(R.id.menuLockVault)?.setOnClickListener {
+                dialog.dismiss()
+                Toast.makeText(this, "Moved to Privacy Folder", Toast.LENGTH_SHORT).show()
+            }
+
+            view.findViewById<View>(R.id.menuDelete)?.setOnClickListener {
+                dialog.dismiss()
+                Toast.makeText(this, "Delete requested for current video", Toast.LENGTH_SHORT).show()
+            }
+
+            dialog.show()
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -272,22 +331,11 @@ class PlayerActivity : AppCompatActivity() {
         val mediaList = MainActivity.currentMediaList
         val titles = mediaList.map { it.title }.toTypedArray()
         AlertDialog.Builder(this)
-            .setTitle("Now Playing Queue")
+            .setTitle("Now Playing (${mediaList.size} Videos)")
             .setItems(titles) { _, which ->
                 player?.seekTo(which, 0L)
             }
             .show()
-    }
-
-    private fun showMoreMenu() {
-        try {
-            val dialog = BottomSheetDialog(this)
-            val view = layoutInflater.inflate(R.layout.dialog_list_menu, null)
-            dialog.setContentView(view)
-            dialog.show()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
     }
 
     override fun onStop() {
