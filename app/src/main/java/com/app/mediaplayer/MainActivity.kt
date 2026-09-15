@@ -1,6 +1,7 @@
 package com.app.mediaplayer
 
 import android.Manifest
+import android.content.ContentUris
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -9,6 +10,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.StrictMode
 import android.provider.MediaStore
 import android.text.Editable
 import android.text.TextWatcher
@@ -23,7 +25,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -45,7 +46,6 @@ class MainActivity : AppCompatActivity() {
     private var meLayout: ScrollView? = null
     private var etSearch: EditText? = null
 
-    // 4 Bottom Navigation Tabs
     private var navVideoIcon: ImageView? = null
     private var navVideoText: TextView? = null
     private var navMusicIcon: ImageView? = null
@@ -80,7 +80,6 @@ class MainActivity : AppCompatActivity() {
             meLayout = findViewById(R.id.meLayout)
             etSearch = findViewById(R.id.etSearch)
 
-            // Bottom Navigation Views
             navVideoIcon = findViewById(R.id.navVideoIcon)
             navVideoText = findViewById(R.id.navVideoText)
             navMusicIcon = findViewById(R.id.navMusicIcon)
@@ -171,56 +170,37 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupMeFeatureClicks() {
         try {
-            // Top Star Button -> VIP Subscription Screen
             findViewById<View>(R.id.btnRewardTop)?.setOnClickListener {
                 startActivity(Intent(this, SubscriptionActivity::class.java))
             }
-
-            // Settings Button -> Opens Complete Settings Screen
             findViewById<View>(R.id.btnMeSettings)?.setOnClickListener {
                 startActivity(Intent(this, SettingsActivity::class.java))
             }
-
-            // File Transfer
             findViewById<View>(R.id.btnMeTransfer)?.setOnClickListener {
                 Toast.makeText(this, "File Transfer Engine Active", Toast.LENGTH_SHORT).show()
             }
-
-            // Private Vault
             findViewById<View>(R.id.btnMeVault)?.setOnClickListener {
                 val vaultDir = File(filesDir, ".PrivacyVault")
                 val count = vaultDir.listFiles()?.size ?: 0
-                Toast.makeText(this, "Privacy Vault: $count hidden files secured 🔒", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Privacy Vault: $count hidden files secured", Toast.LENGTH_LONG).show()
             }
-
-            // Playlists
             findViewById<View>(R.id.btnMePlaylists)?.setOnClickListener {
                 Toast.makeText(this, "My Playlists", Toast.LENGTH_SHORT).show()
             }
-
-            // Watch History
             findViewById<View>(R.id.btnMeHistory)?.setOnClickListener {
                 Toast.makeText(this, "Watch History", Toast.LENGTH_SHORT).show()
             }
-
-            // Recycle Bin
             findViewById<View>(R.id.btnMeBin)?.setOnClickListener {
                 Toast.makeText(this, "Recycle Bin (Empty)", Toast.LENGTH_SHORT).show()
             }
-
-            // Theme Settings
             findViewById<View>(R.id.btnMeTheme)?.setOnClickListener {
-                Toast.makeText(this, "Dark Neon Theme Applied", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Dark Neon Theme Active", Toast.LENGTH_SHORT).show()
             }
-
-            // Help & Feedback
             findViewById<View>(R.id.btnMeHelp)?.setOnClickListener {
-                Toast.makeText(this, "Help Center: contact@mxplayer.app", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Help Center", Toast.LENGTH_SHORT).show()
             }
-
-            // Rate Us
             findViewById<View>(R.id.btnMeRate)?.setOnClickListener {
-                Toast.makeText(this, "Thank you for rating us 5 Stars! ⭐⭐⭐⭐⭐", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Thanks for 5 Stars!", Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -315,7 +295,6 @@ class MainActivity : AppCompatActivity() {
             videoList.clear()
             audioList.clear()
 
-            // 1. Regular System Video Scan
             val videoProjection = arrayOf(
                 MediaStore.Video.Media._ID,
                 MediaStore.Video.Media.TITLE,
@@ -347,7 +326,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // 2. Scan Incomplete Chrome Downloads (.crdownload / .part)
             try {
                 val downloadFolder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                 if (downloadFolder.exists() && downloadFolder.isDirectory) {
@@ -369,7 +347,6 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (_: Exception) {}
 
-            // 3. System Audio Scan
             val audioProjection = arrayOf(
                 MediaStore.Audio.Media._ID,
                 MediaStore.Audio.Media.TITLE,
@@ -467,30 +444,32 @@ class MainActivity : AppCompatActivity() {
 
             view.findViewById<TextView>(R.id.menuMediaTitle)?.text = item.title
 
-            // REAL SHARE VIA WHATSAPP/TELEGRAM
+            // Real Sharing
             view.findViewById<View>(R.id.menuShare)?.setOnClickListener {
                 dialog.dismiss()
                 try {
-                    val file = File(item.path)
-                    if (file.exists()) {
-                        val contentUri = FileProvider.getUriForFile(
-                            this,
-                            "${applicationContext.packageName}.provider",
-                            file
-                        )
-                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = if (item.isVideo) "video/*" else "audio/*"
-                            putExtra(Intent.EXTRA_STREAM, contentUri)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().build())
+                    val contentUri = try {
+                        if (item.isVideo) {
+                            ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, item.id)
+                        } else {
+                            ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, item.id)
                         }
-                        startActivity(Intent.createChooser(shareIntent, "Share Media Via:"))
+                    } catch (_: Exception) {
+                        Uri.fromFile(File(item.path))
                     }
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = if (item.isVideo) "video/*" else "audio/*"
+                        putExtra(Intent.EXTRA_STREAM, contentUri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    startActivity(Intent.createChooser(shareIntent, "Share Media Via:"))
                 } catch (e: Exception) {
                     Toast.makeText(this, "Share error: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
 
-            // REAL PLAY AS AUDIO
+            // Play As Audio
             view.findViewById<View>(R.id.menuPlayAudio)?.setOnClickListener {
                 dialog.dismiss()
                 currentMediaList.clear()
@@ -500,7 +479,7 @@ class MainActivity : AppCompatActivity() {
                 })
             }
 
-            // REAL MOVE TO PRIVACY VAULT
+            // Real Privacy Vault
             view.findViewById<View>(R.id.menuLockVault)?.setOnClickListener {
                 dialog.dismiss()
                 try {
@@ -527,7 +506,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // REAL DELETE WITH CONFIRMATION
+            // Real Delete
             view.findViewById<View>(R.id.menuDelete)?.setOnClickListener {
                 dialog.dismiss()
                 AlertDialog.Builder(this)
