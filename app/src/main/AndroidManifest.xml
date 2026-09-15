@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permissions -->
+    <!-- All Required Permissions -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
@@ -20,18 +20,7 @@
         android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
         tools:targetApi="34">
 
-        <!-- File Provider for Real WhatsApp/Social Sharing -->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.provider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
-
-        <!-- 1. Splash Screen: MX Player Video Music Games launcher -->
+        <!-- 1. Splash Screen Launcher -->
         <activity
             android:name=".SplashActivity"
             android:exported="true"
@@ -42,20 +31,20 @@
             </intent-filter>
         </activity>
 
-        <!-- 2. Main Screen: 4 Bottom Tabs (Video, Music, Search, Me) -->
+        <!-- 2. Main Screen (4 Bottom Tabs, Search Bar, Me Section) -->
         <activity
             android:name=".MainActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustPan" />
 
-        <!-- 3. Super Video Player: 8K/4K, PiP, Controls, Partial Playback -->
+        <!-- 3. Super Video Player (8K/4K, Chrome Incomplete Playback, PiP, Three-Dot Menu) -->
         <activity
             android:name=".PlayerActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:exported="false"
             android:supportsPictureInPicture="true" />
 
-        <!-- 4. Rotating Vinyl CD Music Player -->
+        <!-- 4. Rotating Vinyl CD Audio Player -->
         <activity
             android:name=".AudioPlayerActivity"
             android:exported="false" />
@@ -70,7 +59,7 @@
             android:name=".SettingsActivity"
             android:exported="false" />
 
-        <!-- 7. Background Audio Playback Service -->
+        <!-- 7. Background Audio Playback Engine -->
         <service
             android:name=".PlaybackService"
             android:exported="false"
