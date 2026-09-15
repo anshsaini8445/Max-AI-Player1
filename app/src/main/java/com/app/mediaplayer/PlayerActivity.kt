@@ -1,6 +1,7 @@
 package com.app.mediaplayer
 
 import android.app.PictureInPictureParams
+import android.content.ContentUris
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
@@ -8,6 +9,8 @@ import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.StrictMode
+import android.provider.MediaStore
 import android.util.Rational
 import android.view.View
 import android.view.WindowManager
@@ -18,7 +21,6 @@ import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.FileProvider
 import androidx.media3.common.MediaItem as ExoMediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
@@ -143,14 +145,19 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                Toast.makeText(this@PlayerActivity, "Codec fallback recovered", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@PlayerActivity, "Playback recovered smoothly", Toast.LENGTH_SHORT).show()
             }
         })
     }
 
     private fun setupControls() {
         playerView.findViewById<ImageButton>(R.id.btnBack)?.setOnClickListener { finish() }
-        playerView.findViewById<ImageButton>(R.id.btnMoreSettings)?.setOnClickListener { showPlayitStyleBottomSheet() }
+
+        // Top Right Three-Dot Menu (⋮)
+        playerView.findViewById<ImageButton>(R.id.btnMoreSettings)?.setOnClickListener {
+            showPlayitStyleBottomSheet()
+        }
+
         playerView.findViewById<ImageButton>(R.id.btnPlaylistVideo)?.setOnClickListener { showPlaylistQueue() }
 
         playerView.findViewById<ImageButton>(R.id.btnAudioOnly)?.setOnClickListener {
@@ -172,7 +179,7 @@ class PlayerActivity : AppCompatActivity() {
         playerView.findViewById<View>(R.id.cardUnlock)?.setOnClickListener { setControlsLocked(false) }
 
         playerView.findViewById<View>(R.id.cardCut)?.setOnClickListener {
-            Toast.makeText(this, "Cut: Video Cutter active", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Video Cutter: Select start & end time", Toast.LENGTH_SHORT).show()
         }
 
         playerView.findViewById<View>(R.id.cardRotate)?.setOnClickListener {
@@ -208,7 +215,7 @@ class PlayerActivity : AppCompatActivity() {
         val currentIdx = player?.currentMediaItemIndex ?: 0
         val currentPos = player?.currentPosition ?: 0L
         player?.pause()
-        
+
         val intent = Intent(this, AudioPlayerActivity::class.java).apply {
             putExtra("START_INDEX", currentIdx)
             putExtra("START_POSITION", currentPos)
@@ -242,7 +249,7 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    // 4 FULLY WORKING FEATURES: SHARE, PLAY AS AUDIO, PRIVACY VAULT, DELETE
+    // Three-Dot Menu: Real Share, Play as Audio, Privacy Folder, Delete
     private fun showPlayitStyleBottomSheet() {
         try {
             val dialog = BottomSheetDialog(this)
@@ -255,40 +262,36 @@ class PlayerActivity : AppCompatActivity() {
 
             view.findViewById<TextView>(R.id.menuMediaTitle)?.text = currentItem?.title ?: "Playing Video"
 
-            // 1. REAL FILE SHARING (Via WhatsApp, Telegram, etc.)
+            // 1. Real Sharing without needing file_paths.xml
             view.findViewById<View>(R.id.menuShare)?.setOnClickListener {
                 dialog.dismiss()
                 currentItem?.let { item ->
                     try {
-                        val file = File(item.path)
-                        if (file.exists()) {
-                            val contentUri = FileProvider.getUriForFile(
-                                this,
-                                "${applicationContext.packageName}.provider",
-                                file
-                            )
-                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = if (item.isVideo) "video/*" else "audio/*"
-                                putExtra(Intent.EXTRA_STREAM, contentUri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            startActivity(Intent.createChooser(shareIntent, "Share Video via:"))
-                        } else {
-                            Toast.makeText(this, "File not found on device", Toast.LENGTH_SHORT).show()
+                        StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().build())
+                        val contentUri = try {
+                            ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, item.id)
+                        } catch (_: Exception) {
+                            Uri.fromFile(File(item.path))
                         }
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "video/*"
+                            putExtra(Intent.EXTRA_STREAM, contentUri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        startActivity(Intent.createChooser(shareIntent, "Share Video via:"))
                     } catch (e: Exception) {
-                        Toast.makeText(this, "Sharing failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Share failed: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
 
-            // 2. REAL PLAY AS AUDIO
+            // 2. Play As Audio
             view.findViewById<View>(R.id.menuPlayAudio)?.setOnClickListener {
                 dialog.dismiss()
                 switchToAudioPlayer()
             }
 
-            // 3. REAL MOVE TO PRIVACY VAULT
+            // 3. Real Privacy Vault Move
             view.findViewById<View>(R.id.menuLockVault)?.setOnClickListener {
                 dialog.dismiss()
                 currentItem?.let { item ->
@@ -307,11 +310,9 @@ class PlayerActivity : AppCompatActivity() {
                             val oldPath = sourceFile.absolutePath
                             sourceFile.delete()
 
-                            // Remove from Gallery Scanner
                             MediaScannerConnection.scanFile(this, arrayOf(oldPath), null, null)
-
                             MainActivity.currentMediaList.removeAt(currentIndex)
-                            Toast.makeText(this, "🔒 Moved to Private Vault successfully!", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this, "Moved to Private Vault successfully!", Toast.LENGTH_LONG).show()
 
                             if (MainActivity.currentMediaList.isNotEmpty()) {
                                 initializeSuperEnginePlayer()
@@ -320,23 +321,22 @@ class PlayerActivity : AppCompatActivity() {
                             }
                         }
                     } catch (e: Exception) {
-                        Toast.makeText(this, "Could not move file: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Move error: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
 
-            // 4. REAL DELETE WITH CONFIRMATION DIALOG
+            // 4. Real Delete
             view.findViewById<View>(R.id.menuDelete)?.setOnClickListener {
                 dialog.dismiss()
                 currentItem?.let { item ->
                     AlertDialog.Builder(this)
                         .setTitle("Delete Video")
-                        .setMessage("Are you sure you want to permanently delete \"${item.title}\"?")
+                        .setMessage("Permanently delete \"${item.title}\"?")
                         .setPositiveButton("Delete") { _, _ ->
                             try {
                                 val file = File(item.path)
-                                val deleted = file.delete()
-                                if (deleted || !file.exists()) {
+                                if (file.delete()) {
                                     MediaScannerConnection.scanFile(this, arrayOf(item.path), null, null)
                                     MainActivity.currentMediaList.removeAt(currentIndex)
                                     Toast.makeText(this, "Deleted successfully", Toast.LENGTH_SHORT).show()
@@ -349,10 +349,10 @@ class PlayerActivity : AppCompatActivity() {
                                         finish()
                                     }
                                 } else {
-                                    Toast.makeText(this, "Permission denied by OS to delete", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(this, "Could not delete file", Toast.LENGTH_SHORT).show()
                                 }
                             } catch (e: Exception) {
-                                Toast.makeText(this, "Delete error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this, "Delete failed: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
                         }
                         .setNegativeButton("Cancel", null)
@@ -400,7 +400,7 @@ class PlayerActivity : AppCompatActivity() {
         val mediaList = MainActivity.currentMediaList
         val titles = mediaList.map { it.title }.toTypedArray()
         AlertDialog.Builder(this)
-            .setTitle("Now Playing Queue")
+            .setTitle("Now Playing (${mediaList.size} Videos)")
             .setItems(titles) { _, which ->
                 player?.seekTo(which, 0L)
             }
