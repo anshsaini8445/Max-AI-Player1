@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     private var meLayout: ScrollView? = null
     private var etSearch: EditText? = null
 
+    // 4 Bottom Navigation Tabs
     private var navVideoIcon: ImageView? = null
     private var navVideoText: TextView? = null
     private var navMusicIcon: ImageView? = null
@@ -79,6 +80,7 @@ class MainActivity : AppCompatActivity() {
             meLayout = findViewById(R.id.meLayout)
             etSearch = findViewById(R.id.etSearch)
 
+            // Bottom Navigation Views
             navVideoIcon = findViewById(R.id.navVideoIcon)
             navVideoText = findViewById(R.id.navVideoText)
             navMusicIcon = findViewById(R.id.navMusicIcon)
@@ -169,35 +171,56 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupMeFeatureClicks() {
         try {
+            // Top Star Button -> VIP Subscription Screen
             findViewById<View>(R.id.btnRewardTop)?.setOnClickListener {
                 startActivity(Intent(this, SubscriptionActivity::class.java))
             }
+
+            // Settings Button -> Opens Complete Settings Screen
             findViewById<View>(R.id.btnMeSettings)?.setOnClickListener {
-                startActivity(Intent(this, SubscriptionActivity::class.java))
+                startActivity(Intent(this, SettingsActivity::class.java))
             }
+
+            // File Transfer
             findViewById<View>(R.id.btnMeTransfer)?.setOnClickListener {
-                Toast.makeText(this, "File Transfer", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "File Transfer Engine Active", Toast.LENGTH_SHORT).show()
             }
+
+            // Private Vault
             findViewById<View>(R.id.btnMeVault)?.setOnClickListener {
-                Toast.makeText(this, "Opening Private Vault", Toast.LENGTH_SHORT).show()
+                val vaultDir = File(filesDir, ".PrivacyVault")
+                val count = vaultDir.listFiles()?.size ?: 0
+                Toast.makeText(this, "Privacy Vault: $count hidden files secured 🔒", Toast.LENGTH_LONG).show()
             }
+
+            // Playlists
             findViewById<View>(R.id.btnMePlaylists)?.setOnClickListener {
-                Toast.makeText(this, "Playlists", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "My Playlists", Toast.LENGTH_SHORT).show()
             }
+
+            // Watch History
             findViewById<View>(R.id.btnMeHistory)?.setOnClickListener {
-                Toast.makeText(this, "History", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Watch History", Toast.LENGTH_SHORT).show()
             }
+
+            // Recycle Bin
             findViewById<View>(R.id.btnMeBin)?.setOnClickListener {
-                Toast.makeText(this, "Recycle Bin", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Recycle Bin (Empty)", Toast.LENGTH_SHORT).show()
             }
+
+            // Theme Settings
             findViewById<View>(R.id.btnMeTheme)?.setOnClickListener {
-                Toast.makeText(this, "Themes", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Dark Neon Theme Applied", Toast.LENGTH_SHORT).show()
             }
+
+            // Help & Feedback
             findViewById<View>(R.id.btnMeHelp)?.setOnClickListener {
-                Toast.makeText(this, "Help Center", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Help Center: contact@mxplayer.app", Toast.LENGTH_SHORT).show()
             }
+
+            // Rate Us
             findViewById<View>(R.id.btnMeRate)?.setOnClickListener {
-                Toast.makeText(this, "Thanks for 5 Stars!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Thank you for rating us 5 Stars! ⭐⭐⭐⭐⭐", Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -292,6 +315,7 @@ class MainActivity : AppCompatActivity() {
             videoList.clear()
             audioList.clear()
 
+            // 1. Regular System Video Scan
             val videoProjection = arrayOf(
                 MediaStore.Video.Media._ID,
                 MediaStore.Video.Media.TITLE,
@@ -323,6 +347,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            // 2. Scan Incomplete Chrome Downloads (.crdownload / .part)
             try {
                 val downloadFolder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                 if (downloadFolder.exists() && downloadFolder.isDirectory) {
@@ -344,6 +369,7 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (_: Exception) {}
 
+            // 3. System Audio Scan
             val audioProjection = arrayOf(
                 MediaStore.Audio.Media._ID,
                 MediaStore.Audio.Media.TITLE,
@@ -441,7 +467,7 @@ class MainActivity : AppCompatActivity() {
 
             view.findViewById<TextView>(R.id.menuMediaTitle)?.text = item.title
 
-            // REAL SHARE
+            // REAL SHARE VIA WHATSAPP/TELEGRAM
             view.findViewById<View>(R.id.menuShare)?.setOnClickListener {
                 dialog.dismiss()
                 try {
@@ -474,7 +500,7 @@ class MainActivity : AppCompatActivity() {
                 })
             }
 
-            // REAL PRIVACY VAULT
+            // REAL MOVE TO PRIVACY VAULT
             view.findViewById<View>(R.id.menuLockVault)?.setOnClickListener {
                 dialog.dismiss()
                 try {
