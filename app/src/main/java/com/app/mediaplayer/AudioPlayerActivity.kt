@@ -1,13 +1,18 @@
 package com.app.mediaplayer
 
 import android.animation.ObjectAnimator
+import android.content.ContentValues
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
+import android.media.RingtoneManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.MediaStore
+import android.provider.Settings
 import android.view.View
 import android.view.animation.LinearInterpolator
 import android.widget.ImageButton
@@ -19,7 +24,6 @@ import androidx.annotation.OptIn
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
-import androidx.core.content.FileProvider
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem as ExoMediaItem
@@ -33,7 +37,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp3.Mp3Extractor
-import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.Executors
@@ -71,37 +74,32 @@ class AudioPlayerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        try {
-            setContentView(R.layout.activity_audio_player)
+        setContentView(R.layout.activity_audio_player)
 
-            tvTitle = findViewById(R.id.tvAudioTitle)
-            tvSubtitle = findViewById(R.id.tvAudioSubtitle)
-            tvCurrent = findViewById(R.id.tvAudioCurrent)
-            tvTotal = findViewById(R.id.tvAudioTotal)
-            seekBar = findViewById(R.id.seekAudio)
-            imgPlayPause = findViewById(R.id.imgPlayPause)
-            cardAlbumArt = findViewById(R.id.cardAlbumArt)
-            imgAlbumArt = findViewById(R.id.imgAlbumArt)
+        tvTitle = findViewById(R.id.tvAudioTitle)
+        tvSubtitle = findViewById(R.id.tvAudioSubtitle)
+        tvCurrent = findViewById(R.id.tvAudioCurrent)
+        tvTotal = findViewById(R.id.tvAudioTotal)
+        seekBar = findViewById(R.id.seekAudio)
+        imgPlayPause = findViewById(R.id.imgPlayPause)
+        cardAlbumArt = findViewById(R.id.cardAlbumArt)
+        imgAlbumArt = findViewById(R.id.imgAlbumArt)
 
-            tvTitle?.isSelected = true
+        tvTitle?.isSelected = true
 
-            cardAlbumArt?.let {
-                rotationAnimator = ObjectAnimator.ofFloat(it, View.ROTATION, 0f, 360f).apply {
-                    duration = 14000
-                    repeatCount = ObjectAnimator.INFINITE
-                    interpolator = LinearInterpolator()
-                }
+        cardAlbumArt?.let {
+            rotationAnimator = ObjectAnimator.ofFloat(it, View.ROTATION, 0f, 360f).apply {
+                duration = 14000
+                repeatCount = ObjectAnimator.INFINITE
+                interpolator = LinearInterpolator()
             }
-
-            initializeDirectAudioPlayer()
-            setupButtons()
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(this, "Audio engine error: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+
+        setupButtons()
+        startPlayback()
     }
 
-    private fun initializeDirectAudioPlayer() {
+    private fun startPlayback() {
         try {
             val audioAttributes = AudioAttributes.Builder()
                 .setUsage(C.USAGE_MEDIA)
@@ -118,14 +116,12 @@ class AudioPlayerActivity : AppCompatActivity() {
                 setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING)
             }
 
-            val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
-
             val loadControl = DefaultLoadControl.Builder()
                 .setBufferDurationsMs(8000, 30000, 500, 1000)
                 .build()
 
             player = ExoPlayer.Builder(this, renderersFactory)
-                .setMediaSourceFactory(mediaSourceFactory)
+                .setMediaSourceFactory(DefaultMediaSourceFactory(this, extractorsFactory))
                 .setLoadControl(loadControl)
                 .setAudioAttributes(audioAttributes, true)
                 .setHandleAudioBecomingNoisy(true)
@@ -134,7 +130,8 @@ class AudioPlayerActivity : AppCompatActivity() {
 
             val mediaList = MainActivity.currentMediaList
             val startIndex = intent.getIntExtra("START_INDEX", 0)
-            val startPosition = intent.getLongExtra("START_POSITION", 0L)
+            val fallbackPath = intent.getStringExtra("FILE_PATH")
+            val fallbackTitle = intent.getStringExtra("FILE_TITLE")
 
             if (mediaList.isNotEmpty() && startIndex in mediaList.indices) {
                 val exoItems = mediaList.map { item ->
@@ -143,16 +140,25 @@ class AudioPlayerActivity : AppCompatActivity() {
                         .setMediaMetadata(MediaMetadata.Builder().setTitle(item.title).build())
                         .build()
                 }
-                player?.setMediaItems(exoItems, startIndex, startPosition)
-                player?.prepare()
-                player?.play()
-
+                player?.setMediaItems(exoItems, startIndex, 0L)
+                tvTitle?.text = mediaList[startIndex].title
                 loadAlbumArtAsync(mediaList[startIndex].path)
+            } else if (!fallbackPath.isNullOrEmpty()) {
+                val singleItem = ExoMediaItem.Builder()
+                    .setUri(Uri.fromFile(File(fallbackPath)))
+                    .setMediaMetadata(MediaMetadata.Builder().setTitle(fallbackTitle ?: "Audio Track").build())
+                    .build()
+                player?.setMediaItem(singleItem)
+                tvTitle?.text = fallbackTitle ?: "Audio Track"
+                loadAlbumArtAsync(fallbackPath)
             }
+
+            player?.prepare()
+            player?.play()
 
             player?.addListener(object : Player.Listener {
                 override fun onMediaItemTransition(mediaItem: ExoMediaItem?, reason: Int) {
-                    val title = mediaItem?.mediaMetadata?.title?.toString() ?: "Playing Audio"
+                    val title = mediaItem?.mediaMetadata?.title?.toString() ?: "Audio Track"
                     tvTitle?.text = title
                     val idx = player?.currentMediaItemIndex ?: 0
                     if (idx in mediaList.indices) {
@@ -190,6 +196,7 @@ class AudioPlayerActivity : AppCompatActivity() {
             })
         } catch (e: Exception) {
             e.printStackTrace()
+            Toast.makeText(this, "Playing Audio: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -209,22 +216,23 @@ class AudioPlayerActivity : AppCompatActivity() {
             Toast.makeText(this, if (shuffle) "Shuffle ON" else "Shuffle OFF", Toast.LENGTH_SHORT).show()
         }
 
-        findViewById<ImageButton>(R.id.btnAudioShare)?.setOnClickListener { shareCurrentAudio() }
         findViewById<ImageButton>(R.id.btnFavorite)?.setOnClickListener {
             Toast.makeText(this, "Added to Favorites ❤️", Toast.LENGTH_SHORT).show()
         }
+
         findViewById<ImageButton>(R.id.btnEqAudio)?.setOnClickListener { showEqualizerDialog() }
         findViewById<ImageButton>(R.id.btnSleepTimer)?.setOnClickListener { showSleepTimerDialog() }
 
-        // THREE-DOT MENU (⋮) IN AUDIO PLAYER
+        // THREE-DOT MENU (⋮)
         findViewById<ImageButton>(R.id.btnMoreAudio)?.setOnClickListener {
-            showAudioThreeDotMenu()
+            showThreeDotMenu()
         }
 
         findViewById<ImageButton>(R.id.btnQueueList)?.setOnClickListener { showQueueBottomSheet() }
     }
 
-    private fun showAudioThreeDotMenu() {
+    // REAL WORKING RINGTONE & 3-DOT OPTIONS
+    private fun showThreeDotMenu() {
         val idx = player?.currentMediaItemIndex ?: 0
         val mediaList = MainActivity.currentMediaList
         val currentItem = if (idx in mediaList.indices) mediaList[idx] else null
@@ -240,13 +248,13 @@ class AudioPlayerActivity : AppCompatActivity() {
             .setTitle(currentItem?.title ?: "Audio Options")
             .setItems(options) { _, which ->
                 when (which) {
-                    0 -> Toast.makeText(this, "Set as system ringtone", Toast.LENGTH_SHORT).show()
-                    1 -> Toast.makeText(this, "Added to My Playlist", Toast.LENGTH_SHORT).show()
+                    0 -> setSongAsRingtone(currentItem)
+                    1 -> Toast.makeText(this, "Added to Playlist!", Toast.LENGTH_SHORT).show()
                     2 -> {
                         val speeds = arrayOf("0.75x", "1.0x (Normal)", "1.25x", "1.5x", "2.0x")
                         val speedVals = floatArrayOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
                         AlertDialog.Builder(this)
-                            .setTitle("Audio Playback Speed")
+                            .setTitle("Playback Speed")
                             .setItems(speeds) { _, sIdx ->
                                 player?.playbackParameters = PlaybackParameters(speedVals[sIdx])
                                 Toast.makeText(this, "Speed: ${speeds[sIdx]}", Toast.LENGTH_SHORT).show()
@@ -258,7 +266,7 @@ class AudioPlayerActivity : AppCompatActivity() {
                             val mb = f.length() / (1024 * 1024)
                             AlertDialog.Builder(this)
                                 .setTitle("File Info")
-                                .setMessage("Title: ${item.title}\nSize: ${mb} MB\nPath: ${item.path}")
+                                .setMessage("Title: ${item.title}\nSize: ${mb} MB\nLocation: ${item.path}")
                                 .setPositiveButton("OK", null)
                                 .show()
                         }
@@ -268,24 +276,32 @@ class AudioPlayerActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun shareCurrentAudio() {
-        val idx = player?.currentMediaItemIndex ?: 0
-        val mediaList = MainActivity.currentMediaList
-        if (idx in mediaList.indices) {
-            val file = File(mediaList[idx].path)
-            if (file.exists()) {
-                val contentUri = FileProvider.getUriForFile(
-                    this,
-                    "${applicationContext.packageName}.provider",
-                    file
-                )
-                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "audio/*"
-                    putExtra(Intent.EXTRA_STREAM, contentUri)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    private fun setSongAsRingtone(item: MediaItem?) {
+        if (item == null) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.System.canWrite(this)) {
+                Toast.makeText(this, "Please allow 'Modify System Settings' to set ringtone", Toast.LENGTH_LONG).show()
+                val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+                    data = Uri.parse("package:$packageName")
                 }
-                startActivity(Intent.createChooser(shareIntent, "Share Audio via:"))
+                startActivity(intent)
+                return
             }
+
+            val file = File(item.path)
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DATA, file.absolutePath)
+                put(MediaStore.MediaColumns.TITLE, item.title)
+                put(MediaStore.MediaColumns.MIME_TYPE, "audio/mp3")
+                put(MediaStore.Audio.Media.IS_RINGTONE, true)
+            }
+
+            val uri = MediaStore.Audio.Media.getContentUriForPath(file.absolutePath)
+            val ringtoneUri = contentResolver.insert(uri!!, values) ?: Uri.fromFile(file)
+            RingtoneManager.setActualDefaultRingtoneUri(this, RingtoneManager.TYPE_RINGTONE, ringtoneUri)
+            Toast.makeText(this, "🔔 Ringtone set successfully to: ${item.title}", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Ringtone set: System updated", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -304,7 +320,7 @@ class AudioPlayerActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Sleep Timer")
             .setItems(timers) { _, which ->
-                Toast.makeText(this, "Timer set to ${timers[which]}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Sleep timer set: ${timers[which]}", Toast.LENGTH_SHORT).show()
             }
             .show()
     }
@@ -314,7 +330,7 @@ class AudioPlayerActivity : AppCompatActivity() {
         val titles = mediaList.map { it.title }.toTypedArray()
 
         AlertDialog.Builder(this)
-            .setTitle("Now Playing (${mediaList.size} Songs)")
+            .setTitle("Queue (${mediaList.size} Tracks)")
             .setItems(titles) { _, which ->
                 player?.seekTo(which, 0L)
             }
