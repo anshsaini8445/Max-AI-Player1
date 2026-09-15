@@ -7,18 +7,17 @@
     android:orientation="vertical"
     android:padding="20dp">
 
-    <!-- Title in Cyan matching your screenshot -->
     <TextView
         android:id="@+id/menuMediaTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
         android:ellipsize="end"
         android:singleLine="true"
         android:text="Media Title"
         android:textColor="#00E5FF"
         android:textSize="17sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="16dp" />
+        android:textStyle="bold" />
 
     <LinearLayout
         android:id="@+id/menuShare"
