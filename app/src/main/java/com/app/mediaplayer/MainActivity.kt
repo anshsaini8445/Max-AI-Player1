@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.media.MediaScannerConnection
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -17,13 +19,17 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 
 class MainActivity : AppCompatActivity() {
 
@@ -39,7 +45,6 @@ class MainActivity : AppCompatActivity() {
     private var meLayout: ScrollView? = null
     private var etSearch: EditText? = null
 
-    // 4 Bottom Navigation Tabs
     private var navVideoIcon: ImageView? = null
     private var navVideoText: TextView? = null
     private var navMusicIcon: ImageView? = null
@@ -167,19 +172,17 @@ class MainActivity : AppCompatActivity() {
             findViewById<View>(R.id.btnRewardTop)?.setOnClickListener {
                 startActivity(Intent(this, SubscriptionActivity::class.java))
             }
-
             findViewById<View>(R.id.btnMeSettings)?.setOnClickListener {
                 startActivity(Intent(this, SubscriptionActivity::class.java))
             }
-
             findViewById<View>(R.id.btnMeTransfer)?.setOnClickListener {
                 Toast.makeText(this, "File Transfer", Toast.LENGTH_SHORT).show()
             }
             findViewById<View>(R.id.btnMeVault)?.setOnClickListener {
-                Toast.makeText(this, "Privacy Vault", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Opening Private Vault", Toast.LENGTH_SHORT).show()
             }
             findViewById<View>(R.id.btnMePlaylists)?.setOnClickListener {
-                Toast.makeText(this, "My Playlists", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Playlists", Toast.LENGTH_SHORT).show()
             }
             findViewById<View>(R.id.btnMeHistory)?.setOnClickListener {
                 Toast.makeText(this, "History", Toast.LENGTH_SHORT).show()
@@ -194,7 +197,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Help Center", Toast.LENGTH_SHORT).show()
             }
             findViewById<View>(R.id.btnMeRate)?.setOnClickListener {
-                Toast.makeText(this, "Thanks for rating us 5 Stars!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Thanks for 5 Stars!", Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -289,7 +292,6 @@ class MainActivity : AppCompatActivity() {
             videoList.clear()
             audioList.clear()
 
-            // 1. Regular System MediaStore Scan
             val videoProjection = arrayOf(
                 MediaStore.Video.Media._ID,
                 MediaStore.Video.Media.TITLE,
@@ -321,7 +323,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // 2. Scan Chrome Incomplete Files (.crdownload / .part) from Download folder
             try {
                 val downloadFolder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                 if (downloadFolder.exists() && downloadFolder.isDirectory) {
@@ -330,7 +331,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     partialFiles?.forEachIndexed { index, file ->
                         videoList.add(
-                            0, // Add on top of the list
+                            0,
                             MediaItem(
                                 (999999 + index).toLong(),
                                 "⚡ [Chrome Downloading] " + file.name.removeSuffix(".crdownload").removeSuffix(".part"),
@@ -343,7 +344,6 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (_: Exception) {}
 
-            // 3. Audio Media Scan
             val audioProjection = arrayOf(
                 MediaStore.Audio.Media._ID,
                 MediaStore.Audio.Media.TITLE,
@@ -439,46 +439,92 @@ class MainActivity : AppCompatActivity() {
             val view = layoutInflater.inflate(R.layout.dialog_list_menu, null)
             dialog.setContentView(view)
 
-            val titleId = resources.getIdentifier("menuMediaTitle", "id", packageName)
-            if (titleId != 0) view.findViewById<TextView>(titleId)?.text = item.title
+            view.findViewById<TextView>(R.id.menuMediaTitle)?.text = item.title
 
-            val shareId = resources.getIdentifier("menuShare", "id", packageName)
-            if (shareId != 0) {
-                view.findViewById<View>(shareId)?.setOnClickListener {
-                    dialog.dismiss()
-                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = if (item.isVideo) "video/*" else "audio/*"
-                        putExtra(Intent.EXTRA_STREAM, android.net.Uri.parse("file://${item.path}"))
+            // REAL SHARE
+            view.findViewById<View>(R.id.menuShare)?.setOnClickListener {
+                dialog.dismiss()
+                try {
+                    val file = File(item.path)
+                    if (file.exists()) {
+                        val contentUri = FileProvider.getUriForFile(
+                            this,
+                            "${applicationContext.packageName}.provider",
+                            file
+                        )
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = if (item.isVideo) "video/*" else "audio/*"
+                            putExtra(Intent.EXTRA_STREAM, contentUri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        startActivity(Intent.createChooser(shareIntent, "Share Media Via:"))
                     }
-                    startActivity(Intent.createChooser(shareIntent, "Share Media Via:"))
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Share error: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
 
-            val playAudioId = resources.getIdentifier("menuPlayAudio", "id", packageName)
-            if (playAudioId != 0) {
-                view.findViewById<View>(playAudioId)?.setOnClickListener {
-                    dialog.dismiss()
-                    startActivity(Intent(this, AudioPlayerActivity::class.java).apply {
-                        putExtra("START_INDEX", currentMediaList.indexOf(item))
-                    })
+            // REAL PLAY AS AUDIO
+            view.findViewById<View>(R.id.menuPlayAudio)?.setOnClickListener {
+                dialog.dismiss()
+                currentMediaList.clear()
+                currentMediaList.addAll(if (isShowingVideos) videoList else audioList)
+                startActivity(Intent(this, AudioPlayerActivity::class.java).apply {
+                    putExtra("START_INDEX", currentMediaList.indexOf(item))
+                })
+            }
+
+            // REAL PRIVACY VAULT
+            view.findViewById<View>(R.id.menuLockVault)?.setOnClickListener {
+                dialog.dismiss()
+                try {
+                    val sourceFile = File(item.path)
+                    if (sourceFile.exists()) {
+                        val vaultDir = File(filesDir, ".PrivacyVault")
+                        if (!vaultDir.exists()) vaultDir.mkdirs()
+
+                        val destFile = File(vaultDir, sourceFile.name)
+                        FileInputStream(sourceFile).use { input ->
+                            FileOutputStream(destFile).use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                        val oldPath = sourceFile.absolutePath
+                        sourceFile.delete()
+                        MediaScannerConnection.scanFile(this, arrayOf(oldPath), null, null)
+
+                        Toast.makeText(this, "Moved to Private Vault!", Toast.LENGTH_SHORT).show()
+                        scanMedia()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Vault move failed: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
 
-            val vaultId = resources.getIdentifier("menuLockVault", "id", packageName)
-            if (vaultId != 0) {
-                view.findViewById<View>(vaultId)?.setOnClickListener {
-                    dialog.dismiss()
-                    Toast.makeText(this, "Moved to Privacy Folder", Toast.LENGTH_SHORT).show()
-                }
+            // REAL DELETE WITH CONFIRMATION
+            view.findViewById<View>(R.id.menuDelete)?.setOnClickListener {
+                dialog.dismiss()
+                AlertDialog.Builder(this)
+                    .setTitle("Delete Media")
+                    .setMessage("Permanently delete \"${item.title}\"?")
+                    .setPositiveButton("Delete") { _, _ ->
+                        try {
+                            val file = File(item.path)
+                            if (file.delete()) {
+                                MediaScannerConnection.scanFile(this, arrayOf(item.path), null, null)
+                                Toast.makeText(this, "Deleted successfully", Toast.LENGTH_SHORT).show()
+                                scanMedia()
+                            } else {
+                                Toast.makeText(this, "Could not delete file", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(this, "Error deleting: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
             }
 
-            val deleteId = resources.getIdentifier("menuDelete", "id", packageName)
-            if (deleteId != 0) {
-                view.findViewById<View>(deleteId)?.setOnClickListener {
-                    dialog.dismiss()
-                    Toast.makeText(this, "Deleted", Toast.LENGTH_SHORT).show()
-                }
-            }
             dialog.show()
         } catch (e: Exception) {
             e.printStackTrace()
