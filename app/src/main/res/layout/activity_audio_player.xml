@@ -3,9 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#16171E">
+    android:background="#12131C">
 
-    <!-- Top Action Bar -->
     <RelativeLayout
         android:id="@+id/topBarAudio"
         android:layout_width="match_parent"
@@ -34,6 +33,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:ellipsize="marquee"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
                 android:marqueeRepeatLimit="marquee_forever"
                 android:singleLine="true"
                 android:text="Song Title"
@@ -62,7 +63,6 @@
             app:tint="#FFFFFF" />
     </RelativeLayout>
 
-    <!-- Vinyl Record Center Frame -->
     <RelativeLayout
         android:id="@+id/centerRecordContainer"
         android:layout_width="match_parent"
@@ -71,21 +71,20 @@
         android:layout_below="@id/topBarAudio"
         android:gravity="center">
 
-        <!-- Outer Glowing Ring -->
         <View
-            android:layout_width="310dp"
-            android:layout_height="310dp"
+            android:layout_width="300dp"
+            android:layout_height="300dp"
             android:layout_centerInParent="true"
             android:background="@drawable/ic_launcher_background"
             android:backgroundTint="#1900E5FF" />
 
         <androidx.cardview.widget.CardView
             android:id="@+id/cardAlbumArt"
-            android:layout_width="260dp"
-            android:layout_height="260dp"
+            android:layout_width="250dp"
+            android:layout_height="250dp"
             android:layout_centerInParent="true"
             app:cardBackgroundColor="#0D0E13"
-            app:cardCornerRadius="130dp"
+            app:cardCornerRadius="125dp"
             app:cardElevation="16dp">
 
             <RelativeLayout
@@ -94,24 +93,22 @@
 
                 <ImageView
                     android:id="@+id/imgAlbumArt"
-                    android:layout_width="140dp"
-                    android:layout_height="140dp"
+                    android:layout_width="150dp"
+                    android:layout_height="150dp"
                     android:layout_centerInParent="true"
                     android:scaleType="centerCrop"
                     android:src="@android:drawable/ic_media_play"
                     app:tint="#7A7C8E" />
 
-                <!-- Center Spindle Hole -->
                 <View
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
                     android:layout_centerInParent="true"
                     android:background="#16171E" />
             </RelativeLayout>
         </androidx.cardview.widget.CardView>
     </RelativeLayout>
 
-    <!-- Bottom Controls Area -->
     <LinearLayout
         android:id="@+id/controlsBlock"
         android:layout_width="match_parent"
@@ -121,7 +118,6 @@
         android:paddingHorizontal="24dp"
         android:paddingBottom="24dp">
 
-        <!-- Top Tool Icons (Star, Eq, Timer, More) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -167,7 +163,6 @@
                 app:tint="#A0A2B4" />
         </LinearLayout>
 
-        <!-- Progress Seekbar Row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -180,7 +175,8 @@
                 android:layout_height="wrap_content"
                 android:text="00:00"
                 android:textColor="#7A7C8E"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:textStyle="bold" />
 
             <SeekBar
                 android:id="@+id/seekAudio"
@@ -199,10 +195,10 @@
                 android:layout_height="wrap_content"
                 android:text="00:00"
                 android:textColor="#7A7C8E"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Main Buttons Row -->
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -229,7 +225,6 @@
                 android:src="@android:drawable/ic_media_previous"
                 app:tint="#FFFFFF" />
 
-            <!-- Circular Play / Pause -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/btnAudioPlayPause"
                 android:layout_width="64dp"
