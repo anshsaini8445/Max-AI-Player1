@@ -32,6 +32,8 @@
             android:layout_marginHorizontal="12dp"
             android:layout_weight="1"
             android:ellipsize="marquee"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
             android:marqueeRepeatLimit="marquee_forever"
             android:singleLine="true"
             android:text="Video Title"
@@ -44,7 +46,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="12dp"
-            android:background="#2E334D"
+            android:background="#33FFFFFF"
             android:paddingHorizontal="7dp"
             android:paddingVertical="3dp"
             android:text="HDR"
@@ -57,7 +59,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="14dp"
-            android:background="#2E334D"
+            android:background="#33FFFFFF"
             android:paddingHorizontal="7dp"
             android:paddingVertical="3dp"
             android:text="CC"
@@ -83,7 +85,7 @@
             android:src="@android:drawable/ic_menu_sort_by_size"
             app:tint="#FFFFFF" />
 
-        <!-- RIGHT TOP THREE DOT MENU BUTTON (⋮) -->
+        <!-- Top Right Three-Dot Menu -->
         <ImageButton
             android:id="@+id/btnMoreSettings"
             android:layout_width="36dp"
@@ -93,7 +95,7 @@
             app:tint="#FFFFFF" />
     </LinearLayout>
 
-    <!-- LEFT FLOATING CONTROLS (Sleek Rounded Glass Circles) -->
+    <!-- LEFT CONTROLS: PURE WHITE WITH TRANSLUCENT GLASS CIRCLE -->
     <LinearLayout
         android:id="@+id/leftControlsLayout"
         android:layout_width="wrap_content"
@@ -108,7 +110,7 @@
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:layout_marginBottom="20dp"
-            app:cardBackgroundColor="#6612141F"
+            app:cardBackgroundColor="#55000000"
             app:cardCornerRadius="22dp"
             app:cardElevation="0dp">
 
@@ -118,14 +120,14 @@
                 android:layout_height="22dp"
                 android:layout_gravity="center"
                 android:src="@android:drawable/ic_lock_silent_mode_off"
-                app:tint="#00E5FF" />
+                app:tint="#FFFFFF" />
         </androidx.cardview.widget.CardView>
 
         <androidx.cardview.widget.CardView
             android:id="@+id/cardLock"
             android:layout_width="44dp"
             android:layout_height="44dp"
-            app:cardBackgroundColor="#6612141F"
+            app:cardBackgroundColor="#55000000"
             app:cardCornerRadius="22dp"
             app:cardElevation="0dp">
 
@@ -135,11 +137,11 @@
                 android:layout_height="22dp"
                 android:layout_gravity="center"
                 android:src="@android:drawable/ic_secure"
-                app:tint="#FFD700" />
+                app:tint="#FFFFFF" />
         </androidx.cardview.widget.CardView>
     </LinearLayout>
 
-    <!-- RIGHT FLOATING CONTROLS (Sleek Rounded Glass Circles) -->
+    <!-- RIGHT CONTROLS: PURE WHITE WITH TRANSLUCENT GLASS CIRCLE -->
     <LinearLayout
         android:id="@+id/rightControlsLayout"
         android:layout_width="wrap_content"
@@ -154,7 +156,7 @@
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:layout_marginBottom="20dp"
-            app:cardBackgroundColor="#6612141F"
+            app:cardBackgroundColor="#55000000"
             app:cardCornerRadius="22dp"
             app:cardElevation="0dp">
 
@@ -163,14 +165,14 @@
                 android:layout_height="22dp"
                 android:layout_gravity="center"
                 android:src="@android:drawable/ic_menu_edit"
-                app:tint="#FF5252" />
+                app:tint="#FFFFFF" />
         </androidx.cardview.widget.CardView>
 
         <androidx.cardview.widget.CardView
             android:id="@+id/cardRotate"
             android:layout_width="44dp"
             android:layout_height="44dp"
-            app:cardBackgroundColor="#6612141F"
+            app:cardBackgroundColor="#55000000"
             app:cardCornerRadius="22dp"
             app:cardElevation="0dp">
 
@@ -179,11 +181,11 @@
                 android:layout_height="22dp"
                 android:layout_gravity="center"
                 android:src="@android:drawable/ic_menu_rotate"
-                app:tint="#00E5FF" />
+                app:tint="#FFFFFF" />
         </androidx.cardview.widget.CardView>
     </LinearLayout>
 
-    <!-- UNLOCK BUTTON (Only shown when screen is locked) -->
+    <!-- UNLOCK BUTTON -->
     <androidx.cardview.widget.CardView
         android:id="@+id/cardUnlock"
         android:layout_width="50dp"
@@ -192,16 +194,16 @@
         android:layout_centerVertical="true"
         android:layout_marginStart="20dp"
         android:visibility="gone"
-        app:cardBackgroundColor="#AA000000"
+        app:cardBackgroundColor="#88000000"
         app:cardCornerRadius="25dp"
         app:cardElevation="4dp">
 
         <ImageView
-            android:layout_width="26dp"
-            android:layout_height="26dp"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
             android:layout_gravity="center"
             android:src="@android:drawable/ic_secure"
-            app:tint="#00E5FF" />
+            app:tint="#FFFFFF" />
     </androidx.cardview.widget.CardView>
 
     <!-- BOTTOM CONTROLS -->
@@ -216,7 +218,7 @@
         android:paddingTop="6dp"
         android:paddingBottom="12dp">
 
-        <!-- Time & Scrubber -->
+        <!-- Time and Progress Bar -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -238,8 +240,8 @@
                 android:layout_height="28dp"
                 android:layout_marginHorizontal="12dp"
                 android:layout_weight="1"
-                app:played_color="#00E5FF"
-                app:scrubber_color="#00E5FF"
+                app:played_color="#FFFFFF"
+                app:scrubber_color="#FFFFFF"
                 app:unplayed_color="#44FFFFFF" />
 
             <TextView
@@ -252,7 +254,7 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Buttons Row -->
+        <!-- Control Buttons -->
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -328,7 +330,7 @@
                     android:layout_height="34dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@android:drawable/ic_menu_slideshow"
-                    app:tint="#00E5FF" />
+                    app:tint="#FFFFFF" />
             </LinearLayout>
         </RelativeLayout>
     </LinearLayout>
