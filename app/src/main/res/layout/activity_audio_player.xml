@@ -3,8 +3,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#12131C">
+    android:background="#10111A">
 
+    <!-- Top Action Bar -->
     <RelativeLayout
         android:id="@+id/topBarAudio"
         android:layout_width="match_parent"
@@ -47,8 +48,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="&lt;unknown&gt;"
-                android:textColor="#7A7C8E"
+                android:text="Now Playing"
+                android:textColor="#888899"
                 android:textSize="12sp" />
         </LinearLayout>
 
@@ -63,6 +64,7 @@
             app:tint="#FFFFFF" />
     </RelativeLayout>
 
+    <!-- Center Rotating Disc -->
     <RelativeLayout
         android:id="@+id/centerRecordContainer"
         android:layout_width="match_parent"
@@ -76,7 +78,7 @@
             android:layout_height="300dp"
             android:layout_centerInParent="true"
             android:background="@drawable/ic_launcher_background"
-            android:backgroundTint="#1900E5FF" />
+            android:backgroundTint="#12FFFFFF" />
 
         <androidx.cardview.widget.CardView
             android:id="@+id/cardAlbumArt"
@@ -85,7 +87,7 @@
             android:layout_centerInParent="true"
             app:cardBackgroundColor="#0D0E13"
             app:cardCornerRadius="125dp"
-            app:cardElevation="16dp">
+            app:cardElevation="12dp">
 
             <RelativeLayout
                 android:layout_width="match_parent"
@@ -98,17 +100,18 @@
                     android:layout_centerInParent="true"
                     android:scaleType="centerCrop"
                     android:src="@android:drawable/ic_media_play"
-                    app:tint="#7A7C8E" />
+                    app:tint="#777788" />
 
                 <View
                     android:layout_width="28dp"
                     android:layout_height="28dp"
                     android:layout_centerInParent="true"
-                    android:background="#16171E" />
+                    android:background="#10111A" />
             </RelativeLayout>
         </androidx.cardview.widget.CardView>
     </RelativeLayout>
 
+    <!-- Bottom Controls Area -->
     <LinearLayout
         android:id="@+id/controlsBlock"
         android:layout_width="match_parent"
@@ -118,6 +121,7 @@
         android:paddingHorizontal="24dp"
         android:paddingBottom="24dp">
 
+        <!-- Tools Row: All Pure White Icons -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -133,7 +137,7 @@
                 android:layout_weight="1"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/star_off"
-                app:tint="#A0A2B4" />
+                app:tint="#FFFFFF" />
 
             <ImageButton
                 android:id="@+id/btnEqAudio"
@@ -142,7 +146,7 @@
                 android:layout_weight="1"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_preferences"
-                app:tint="#A0A2B4" />
+                app:tint="#FFFFFF" />
 
             <ImageButton
                 android:id="@+id/btnSleepTimer"
@@ -151,8 +155,9 @@
                 android:layout_weight="1"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_recent_history"
-                app:tint="#A0A2B4" />
+                app:tint="#FFFFFF" />
 
+            <!-- Three-Dot Menu -->
             <ImageButton
                 android:id="@+id/btnMoreAudio"
                 android:layout_width="0dp"
@@ -160,9 +165,10 @@
                 android:layout_weight="1"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_more"
-                app:tint="#A0A2B4" />
+                app:tint="#FFFFFF" />
         </LinearLayout>
 
+        <!-- Progress Seekbar Row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -174,7 +180,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="00:00"
-                android:textColor="#7A7C8E"
+                android:textColor="#9999AA"
                 android:textSize="12sp"
                 android:textStyle="bold" />
 
@@ -186,7 +192,7 @@
                 android:maxHeight="3dp"
                 android:paddingHorizontal="12dp"
                 android:progressDrawable="@android:drawable/progress_horizontal"
-                android:progressTint="#00E5FF"
+                android:progressTint="#FFFFFF"
                 android:thumbTint="#FFFFFF" />
 
             <TextView
@@ -194,11 +200,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="00:00"
-                android:textColor="#7A7C8E"
+                android:textColor="#9999AA"
                 android:textSize="12sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- Action Row -->
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -212,7 +219,7 @@
                 android:layout_centerVertical="true"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_rotate"
-                app:tint="#7A7C8E" />
+                app:tint="#888899" />
 
             <ImageButton
                 android:id="@+id/btnAudioPrev"
@@ -225,6 +232,7 @@
                 android:src="@android:drawable/ic_media_previous"
                 app:tint="#FFFFFF" />
 
+            <!-- Circular Play/Pause -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/btnAudioPlayPause"
                 android:layout_width="64dp"
@@ -240,7 +248,7 @@
                     android:layout_height="match_parent"
                     android:padding="18dp"
                     android:src="@android:drawable/ic_media_play"
-                    app:tint="#0D0E13" />
+                    app:tint="#10111A" />
             </androidx.cardview.widget.CardView>
 
             <ImageButton
@@ -262,7 +270,7 @@
                 android:layout_centerVertical="true"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_sort_by_size"
-                app:tint="#7A7C8E" />
+                app:tint="#888899" />
         </RelativeLayout>
     </LinearLayout>
 
