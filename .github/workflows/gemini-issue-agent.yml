@@ -7,7 +7,6 @@ on:
 permissions:
   contents: write
   issues: write
-  pull-requests: write
 
 concurrency:
   group: gemini-issue-${{ github.event.issue.number }}
@@ -23,7 +22,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -34,20 +32,14 @@ jobs:
         run: pip install --quiet google-genai
 
       - name: Run Gemini Agent
-        id: agent
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           python - << 'EOF'
-          import os
-          import sys
-          import json
-          import re
-          import traceback
+          import os, sys, json, re
           from pathlib import Path
           from google import genai
           from google.genai import types
@@ -56,79 +48,49 @@ jobs:
           title = os.environ.get("ISSUE_TITLE", "").strip()
           body = os.environ.get("ISSUE_BODY", "") or ""
           issue_no = os.environ.get("ISSUE_NUMBER", "")
-          repo = os.environ.get("GITHUB_REPOSITORY", "")
 
           if not api_key:
               print("FATAL: GEMINI_API_KEY secret is not set!")
               sys.exit(1)
 
-          print(f"Processing Issue #{issue_no}: {title}")
-
-          # Collect relevant repository files
           all_files = []
           for root, dirs, files in os.walk("."):
-              # Skip heavy / irrelevant directories
-              dirs[:] = [d for d in dirs if d not in {".git", "build", ".gradle", "node_modules", ".idea", "captures"}]
+              dirs[:] = [d for d in dirs if d not in {".git", "build", ".gradle", "node_modules", ".idea"}]
               for f in files:
-                  if f.endswith((".kt", ".java", ".xml", ".gradle", ".kts", ".properties", ".md", ".toml")):
-                      rel = os.path.relpath(os.path.join(root, f), ".")
-                      all_files.append(rel)
+                  if f.endswith((".kt", ".java", ".xml", ".gradle", ".kts", ".properties")):
+                      all_files.append(os.path.relpath(os.path.join(root, f), "."))
 
           file_list_str = "\n".join(sorted(all_files)[:150])
-          print(f"Found {len(all_files)} relevant files (showing up to 150)")
 
           prompt = f"""You are an expert Android developer specializing in ExoPlayer / Media3 media players.
-          You are working on a media player app called MAX.
+          Working on MAX media player app.
 
-          Repository structure (relevant files):
+          Repository files:
           {file_list_str}
 
-          === GitHub Issue #{issue_no} ===
+          Task from GitHub Issue #{issue_no}:
           Title: {title}
+          Details: {body}
 
-          Description:
-          {body}
-          === End of Issue ===
-
-          Your task:
-          1. Carefully understand the feature / bug / improvement requested.
-          2. Decide which file(s) need to be created or modified.
-          3. Return ONLY a valid JSON object in this exact format (no markdown, no extra text):
-
+          Return ONLY a valid JSON object in this exact format:
           {{
-            "summary": "Short 1-2 line explanation of what you implemented",
+            "summary": "Short explanation of changes",
             "files": [
               {{
-                "filepath": "relative/path/to/File.kt",
-                "content": "complete full source code of the file"
+                "filepath": "app/src/main/java/path/to/File.kt",
+                "content": "FULL_UPDATED_CONTENT"
               }}
             ]
           }}
-
-          Rules:
-          - You may return multiple files if needed.
-          - Always provide the COMPLETE file content (never partial diffs).
-          - Use correct package names and imports based on the existing project structure.
-          - Prefer modern Android / Kotlin / Media3 best practices.
-          - If the issue is unclear or cannot be implemented safely, return an empty files array and explain in summary.
-          - filepath must be relative to repository root (e.g. app/src/main/java/com/example/PlayerActivity.kt)
           """
 
           client = genai.Client(api_key=api_key)
-
-          candidate_models = [
-              "gemini-3.8-flash",
-              "gemini-3.7-flash",
-              "gemini-3.6-flash",
-              "gemini-3.5-flash-lite"
-          ]
-
+          candidate_models = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
           response = None
-          used_model = None
 
           for model_name in candidate_models:
               try:
-                  print(f"Trying model: {model_name} ...")
+                  print(f"Trying model: {model_name}...")
                   response = client.models.generate_content(
                       model=model_name,
                       contents=prompt,
@@ -137,158 +99,54 @@ jobs:
                           temperature=0.2
                       )
                   )
-                  used_model = model_name
-                  print(f"Success with model: {used_model}")
+                  print(f"Success with model: {model_name}")
                   break
               except Exception as err:
                   print(f"Model {model_name} failed: {err}")
 
           if not response or not getattr(response, "text", None):
-              print("FATAL: All models failed to respond")
+              print("FATAL: All model requests failed!")
               sys.exit(1)
 
           raw_text = response.text.strip()
-          print(f"Raw response length: {len(raw_text)}")
-
-          # Robust JSON extraction
-          data = None
           try:
               data = json.loads(raw_text)
-          except json.JSONDecodeError:
+          except Exception:
               match = re.search(r"\{[\s\S]*\}", raw_text)
-              if match:
-                  try:
-                      data = json.loads(match.group(0))
-                  except Exception:
-                      pass
+              data = json.loads(match.group(0)) if match else None
 
-          if not data or not isinstance(data, dict):
-              print("FATAL: Could not parse valid JSON from model response")
-              print("Raw response preview:", raw_text[:800])
+          if not data or not isinstance(data.get("files"), list):
+              print("FATAL: Invalid JSON response structure")
               sys.exit(1)
 
-          summary = data.get("summary", "No summary provided")
-          files = data.get("files", [])
+          changed = []
+          for item in data["files"]:
+              fp = item.get("filepath", "").strip().replace("\\", "/")
+              if fp.startswith("./"): fp = fp[2:]
+              if ".." in fp or fp.startswith("/"): continue
 
-          if not isinstance(files, list):
-              print("FATAL: 'files' is not a list")
-              sys.exit(1)
+              Path(fp).parent.mkdir(parents=True, exist_ok=True)
+              with open(fp, "w", encoding="utf-8") as f:
+                  f.write(item.get("content", ""))
+              changed.append(fp)
+              print(f"Updated: {fp}")
 
-          changed_files = []
-
-          for item in files:
-              if not isinstance(item, dict):
-                  continue
-              filepath = str(item.get("filepath", "")).strip()
-              content = item.get("content", "")
-
-              if not filepath or content is None or content == "":
-                  print(f"Skipping invalid file entry: {filepath}")
-                  continue
-
-              # Normalize path
-              if filepath.startswith("./"):
-                  filepath = filepath[2:]
-              filepath = filepath.replace("\\", "/")
-
-              # Safety: prevent writing outside repo
-              if ".." in filepath or filepath.startswith("/"):
-                  print(f"SECURITY: Skipping dangerous path: {filepath}")
-                  continue
-
-              try:
-                  path_obj = Path(filepath)
-                  if path_obj.parent and str(path_obj.parent) != ".":
-                      path_obj.parent.mkdir(parents=True, exist_ok=True)
-
-                  with open(filepath, "w", encoding="utf-8") as f:
-                      f.write(content)
-
-                  changed_files.append(filepath)
-                  print(f"Written: {filepath}")
-              except Exception as e:
-                  print(f"Failed to write {filepath}: {e}")
-
-          # Write summary for later steps
           with open("agent_summary.txt", "w", encoding="utf-8") as f:
-              f.write(summary)
-
-          with open("changed_files.txt", "w", encoding="utf-8") as f:
-              f.write("\n".join(changed_files))
-
-          print(f"\n=== Agent finished using {used_model} ===")
-          print(f"Summary: {summary}")
-          print(f"Files changed: {len(changed_files)}")
-          if changed_files:
-              for cf in changed_files:
-                  print(f"  - {cf}")
-          else:
-              print("No files were changed.")
+              f.write(data.get("summary", "Automated code update"))
           EOF
 
-      - name: Commit changes and create Pull Request
-        id: pr
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
+      - name: Commit and Push to Main
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          # Check if any files were changed
-          if [ ! -f changed_files.txt ] || [ ! -s changed_files.txt ]; then
-            echo "No changes detected by the agent."
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          BRANCH="gemini/issue-${ISSUE_NUMBER}"
-          git checkout -b "$BRANCH"
-
           git add -A
-
           if git diff --staged --quiet; then
-            echo "No staged changes."
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-            exit 0
+            echo "No changes to commit."
+          else
+            SUMMARY=$(cat agent_summary.txt 2>/dev/null || echo "Automated update")
+            git commit -m "Auto-implement Issue #${{ github.event.issue.number }}: $SUMMARY"
+            git push origin HEAD:main
           fi
-
-          SUMMARY=$(cat agent_summary.txt 2>/dev/null || echo "Automated implementation by Gemini Agent")
-
-          git commit -m "feat: Auto-implement Issue #${ISSUE_NUMBER}
-
-          ${SUMMARY}
-
-          Triggered by: #${ISSUE_NUMBER}
-          Generated by: Gemini Issue Coder Agent"
-
-          git push -u origin "$BRANCH"
-
-          # Create Pull Request
-          PR_URL=$(gh pr create \
-            --title "🤖 Gemini: ${ISSUE_TITLE}" \
-            --body "## Automated Implementation
-
-          This PR was automatically generated by the **Gemini Issue Coder Agent** in response to issue #${ISSUE_NUMBER}.
-
-          ### Summary
-          ${SUMMARY}
-
-          ### Changed files
-          \`\`\`
-          $(cat changed_files.txt)
-          \`\`\`
-
-          ---
-          **Please review carefully before merging.**
-          " \
-            --base main \
-            --head "$BRANCH")
-
-          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
-          echo "has_changes=true" >> $GITHUB_OUTPUT
-          echo "Created PR: $PR_URL"
 
       - name: Comment on Issue
         if: always()
@@ -296,29 +154,9 @@ jobs:
         with:
           script: |
             const status = '${{ job.status }}';
-            const hasChanges = '${{ steps.pr.outputs.has_changes }}' === 'true';
-            const prUrl = '${{ steps.pr.outputs.pr_url }}';
-
-            let body = '';
-
-            if (status === 'success' && hasChanges && prUrl) {
-              body = `✅ **Gemini Agent completed successfully!**
-
-            A Pull Request has been created with the proposed changes:
-
-            👉 ${prUrl}
-
-            Please review the PR carefully before merging.`;
-            } else if (status === 'success' && !hasChanges) {
-              body = `ℹ️ Gemini Agent ran successfully but **no code changes** were required for this issue.
-
-            The agent determined that the request either cannot be implemented automatically or needs more clarification.`;
-            } else {
-              body = `❌ **Gemini Agent failed**.
-
-            Please check the [Action run logs](\( {{ github.server_url }}/ \){{ github.repository }}/actions/runs/${{ github.run_id }}) for details.`;
-            }
-
+            const body = status === 'success'
+              ? '✅ Task successfully implemented and merged into main! APK build has started automatically.'
+              : '❌ Gemini Agent run failed. Please check the Action run logs.';
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
