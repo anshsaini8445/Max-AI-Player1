@@ -86,7 +86,7 @@
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <!-- GESTURE SEEK HUD (Nano/Seconds Live Counter) -->
+    <!-- GESTURE SEEK HUD (Seconds Live Counter) -->
     <androidx.cardview.widget.CardView
         android:id="@+id/hudSeek"
         android:layout_width="220dp"
