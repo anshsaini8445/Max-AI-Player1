@@ -1,143 +1,115 @@
 package com.app.mediaplayer
 
-import android.content.Intent
-import android.content.pm.ActivityInfo
-import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowInsets
-import android.view.WindowInsetsController
-import android.widget.ImageButton
-import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 
 class PlayerActivity : AppCompatActivity() {
 
-    private var player: ExoPlayer? = nullptr_placeholder_fix()
-    private lateinit var playerView: PlayerView
-    private var isFullscreen = false
-    private var isLocked = false
-
-    private fun nullptr_placeholder_fix(): ExoPlayer? = null
+    private var player: ExoPlayer? = null
+    private var playerView: PlayerView? = null
+    private lateinit var gestureDetector: GestureDetector
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_player)
 
-        // Hide system bars for immersive video experience
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        val windowInsetsController = WindowInsetsControllerCompat(window, window.decorView)
-        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        val layoutResId = resources.getIdentifier("activity_player", "layout", packageName)
+        if (layoutResId != 0) {
+            setContentView(layoutResId)
+        }
 
-        playerView = findViewById(R.id.player_view)
-        
-        val videoUriString = intent.getStringExtra("VIDEO_URI")
-        val videoUri = if (videoUriString != null) Uri.parse(videoUriString) else null
-
-        setupCustomControls()
-
-        player = ExoPlayer.Builder(this).build().apply {
-            playerView.player = this
-            if (videoUri != null) {
-                setMediaItem(MediaItem.fromUri(videoUri))
+        playerView = locatePlayerView()
+        if (playerView == null) {
+            playerView = PlayerView(this).also {
+                setContentView(it)
             }
-            prepare()
-            playWhenReady = true
+        }
+
+        initializePlayer()
+        setupDoubleTapSeek()
+    }
+
+    private fun locatePlayerView(): PlayerView? {
+        val candidateIds = listOf("player_view", "playerView", "exo_player_view", "video_view")
+        for (idName in candidateIds) {
+            val resId = resources.getIdentifier(idName, "id", packageName)
+            if (resId != 0) {
+                val found = findViewById<PlayerView>(resId)
+                if (found != null) return found
+            }
+        }
+        val rootView = findViewById<View>(android.R.id.content)
+        return findViewByType(rootView)
+    }
+
+    private fun findViewByType(view: View?): PlayerView? {
+        if (view is PlayerView) return view
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                val child = findViewByType(view.getChildAt(i))
+                if (child != null) return child
+            }
+        }
+        return null
+    }
+
+    private fun initializePlayer() {
+        player = ExoPlayer.Builder(this).build()
+        playerView?.player = player
+
+        val videoUri = intent.data ?: intent.getStringExtra("video_uri")?.let { Uri.parse(it) }
+        if (videoUri != null) {
+            val mediaItem = MediaItem.fromUri(videoUri)
+            player?.setMediaItem(mediaItem)
+            player?.prepare()
+            player?.playWhenReady = true
         }
     }
 
-    private fun setupCustomControls() {
-        val btnRotate = playerView.findViewById<ImageButton>(R.id.btn_rotate)
-        val btnFullscreen = playerView.findViewById<ImageButton>(R.id.btn_fullscreen)
-        val btnLock = playerView.findViewById<ImageButton>(R.id.btn_lock)
-        val btnScreenshot = playerView.findViewById<ImageButton>(R.id.btn_screenshot)
-        val btnEqualizer = playerView.findViewById<ImageButton>(R.id.btn_equalizer)
-        val btnAudioTrack = playerView.findViewById<ImageButton>(R.id.btn_audio_track)
-        val btnSubtitle = playerView.findViewById<ImageButton>(R.id.btn_subtitle)
-        val btnSpeed = playerView.findViewById<ImageButton>(R.id.btn_speed)
-        val tvTitle = playerView.findViewById<TextView>(R.id.tv_title)
+    private fun setupDoubleTapSeek() {
+        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                val p = player ?: return false
+                val screenWidth = resources.displayMetrics.widthPixels
+                val current = p.currentPosition
+                val totalDuration = p.duration
 
-        tvTitle?.text = intent.getStringExtra("VIDEO_TITLE") ?: "Video Player"
-
-        btnRotate?.setOnClickListener {
-            requestedOrientation = if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            } else {
-                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-            }
-        }
-
-        btnFullscreen?.setOnClickListener {
-            isFullscreen = !isFullscreen
-            requestedOrientation = if (isFullscreen) {
-                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            } else {
-                ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-            }
-        }
-
-        btnLock?.setOnClickListener {
-            isLocked = !isLocked
-            val controlsGroup = playerView.findViewById<View>(R.id.controls_group)
-            if (isLocked) {
-                controlsGroup?.visibility = View.GONE
-                btnLock.setImageResource(android.R.drawable.ic_lock_lock)
-            } else {
-                controlsGroup?.visibility = View.VISIBLE
-                btnLock.setImageResource(android.R.drawable.ic_lock_idle_lock)
-            }
-        }
-
-        btnScreenshot?.setOnClickListener {
-            player?.let {
-                ScreenshotHelper.takeScreenshot(this, playerView, it)
-            }
-        }
-
-        btnEqualizer?.setOnClickListener {
-            startActivity(Intent(this, EqualizerActivity::class.java))
-        }
-
-        // Using isControllerFullyVisible() instead of unresolved isControllerVisible reference
-        playerView.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
-            if (visibility == View.VISIBLE) {
-                showSystemBars()
-            } else {
-                if (playerView.isControllerFullyVisible().not() && !isLocked) {
-                    hideSystemBars()
+                if (e.x < screenWidth / 2) {
+                    val target = (current - 10000).coerceAtLeast(0)
+                    p.seekTo(target)
+                    Toast.makeText(this@PlayerActivity, "-10s", Toast.LENGTH_SHORT).show()
+                } else {
+                    val maxLimit = if (totalDuration > 0) totalDuration else Long.MAX_VALUE
+                    val target = (current + 10000).coerceAtMost(maxLimit)
+                    p.seekTo(target)
+                    Toast.makeText(this@PlayerActivity, "+10s", Toast.LENGTH_SHORT).show()
                 }
+                return true
             }
         })
-    }
 
-    private fun hideSystemBars() {
-        WindowInsetsControllerCompat(window, window.decorView).let { controller ->
-            controller.hide(WindowInsetsCompat.Type.systemBars())
-            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        playerView?.setOnTouchListener { _, event ->
+            gestureDetector.onTouchEvent(event)
+            false
         }
-    }
-
-    private fun showSystemBars() {
-        WindowInsetsControllerCompat(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
     }
 
     override fun onResume() {
         super.onResume()
-        hideSystemBars()
-        player?.play()
+        player?.playWhenReady = true
     }
 
     override fun onPause() {
         super.onPause()
-        player?.pause()
+        player?.playWhenReady = false
     }
 
     override fun onDestroy() {
