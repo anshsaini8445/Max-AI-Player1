@@ -30,6 +30,9 @@ class PlaybackService : MediaSessionService() {
     companion object {
         const val CHANNEL_ID = "MAX_PLAYER_MUSIC_CHANNEL"
         const val NOTIFICATION_ID = 1001
+        const val ACTION_PLAY_PAUSE = "com.app.mediaplayer.ACTION_PLAY_PAUSE"
+        const val ACTION_NEXT = "com.app.mediaplayer.ACTION_NEXT"
+        const val ACTION_PREV = "com.app.mediaplayer.ACTION_PREV"
     }
 
     override fun onCreate() {
@@ -50,14 +53,12 @@ class PlaybackService : MediaSessionService() {
             setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING)
         }
 
-        val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
-
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(10000, 30000, 500, 1000)
             .build()
 
         player = ExoPlayer.Builder(this, renderersFactory)
-            .setMediaSourceFactory(mediaSourceFactory)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(this, extractorsFactory))
             .setLoadControl(loadControl)
             .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
@@ -76,14 +77,29 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification())
+        startForeground(NOTIFICATION_ID, buildSystemNotification())
 
         player?.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
+            override fun onEvents(p: Player, events: Player.Events) {
                 val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-                notificationManager.notify(NOTIFICATION_ID, buildNotification())
+                notificationManager.notify(NOTIFICATION_ID, buildSystemNotification())
             }
         })
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_PLAY_PAUSE -> {
+                if (player?.isPlaying == true) player?.pause() else player?.play()
+            }
+            ACTION_NEXT -> {
+                if (player?.hasNextMediaItem() == true) player?.seekToNextMediaItem()
+            }
+            ACTION_PREV -> {
+                if (player?.hasPreviousMediaItem() == true) player?.seekToPreviousMediaItem()
+            }
+        }
+        return super.onStartCommand(intent, flags, startId)
     }
 
     private fun createNotificationChannel() {
@@ -93,7 +109,7 @@ class PlaybackService : MediaSessionService() {
                 "MAX Music Playback",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Controls background audio playback"
+                description = "Media controls on status bar and lockscreen"
                 setShowBadge(false)
             }
             val manager = getSystemService(NotificationManager::class.java)
@@ -101,14 +117,46 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    private fun buildNotification(): Notification {
-        val currentTitle = player?.currentMediaItem?.mediaMetadata?.title?.toString() ?: "MX Player Audio Engine"
+    private fun buildSystemNotification(): Notification {
+        val currentTitle = player?.currentMediaItem?.mediaMetadata?.title?.toString() ?: "MAX Audio"
+
+        // Play/Pause Action Intent
+        val playPauseIntent = Intent(this, PlaybackService::class.java).apply { action = ACTION_PLAY_PAUSE }
+        val pPlayPause = PendingIntent.getService(this, 1, playPauseIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+
+        // Next Action Intent
+        val nextIntent = Intent(this, PlaybackService::class.java).apply { action = ACTION_NEXT }
+        val pNext = PendingIntent.getService(this, 2, nextIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+
+        // Prev Action Intent
+        val prevIntent = Intent(this, PlaybackService::class.java).apply { action = ACTION_PREV }
+        val pPrev = PendingIntent.getService(this, 3, prevIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+
+        val isPlaying = player?.isPlaying == true
+        val playIcon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+
+        val openAppPendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, AudioPlayerActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(currentTitle)
-            .setContentText("Playing high quality audio")
+            .setContentText("MAX Player Audio Engine")
             .setSmallIcon(android.R.drawable.ic_media_play)
-            .setOngoing(player?.isPlaying == true)
+            .setContentIntent(openAppPendingIntent)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(isPlaying)
             .setSilent(true)
+            .addAction(android.R.drawable.ic_media_previous, "Previous", pPrev)
+            .addAction(playIcon, if (isPlaying) "Pause" else "Play", pPlayPause)
+            .addAction(android.R.drawable.ic_media_next, "Next", pNext)
+            .setStyle(
+                androidx.media.app.NotificationCompat.MediaStyle()
+                    .setShowActionsInCompactView(0, 1, 2)
+            )
             .build()
     }
 
