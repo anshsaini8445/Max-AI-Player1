@@ -20,11 +20,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
-      - name: Install Official Google AI SDK
+      - name: Install Google Official GenAI SDK
         run: |
-          pip install --quiet google-generativeai
+          pip install --quiet google-genai
 
       - name: Run Gemini Agent
         env:
@@ -36,38 +36,22 @@ jobs:
         run: |
           python - << 'EOF'
           import os, json
-          import google.generativeai as genai
+          from google import genai
 
           api_key = os.environ.get("GEMINI_API_KEY", "").strip()
           title = os.environ.get("ISSUE_TITLE", "")
           body = os.environ.get("ISSUE_BODY", "")
+          issue_no = os.environ.get("ISSUE_NUMBER")
 
           if not api_key:
               print("GEMINI_API_KEY secret nahi mila!")
               exit(1)
 
-          genai.configure(api_key=api_key)
-
-          # Auto-select active model without 404 error
-          chosen_model = "gemini-1.5-flash"
-          try:
-              available = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-              for m in available:
-                  if "flash" in m.lower():
-                      chosen_model = m
-                      break
-              else:
-                  if available:
-                      chosen_model = available[0]
-          except Exception as e:
-              print(f"Model selection fallback: {e}")
-
-          print(f"Connecting to model: {chosen_model}")
-          model = genai.GenerativeModel(chosen_model)
+          client = genai.Client(api_key=api_key)
 
           prompt = f"""
           You are an expert Android Kotlin developer working on an ExoPlayer/Media3 media player app named MAX.
-          User request from GitHub Issue:
+          User request from GitHub Issue #{issue_no}:
           Title: {title}
           Details: {body}
 
@@ -80,9 +64,23 @@ jobs:
           Do not include markdown backticks or any explanation outside the JSON.
           """
 
-          response = model.generate_content(prompt)
-          text = response.text.strip()
+          # Exact model requested by Google
+          target_model = "gemini-3.6-flash"
+          print(f"Connecting to: {target_model}")
 
+          try:
+              response = client.models.generate_content(
+                  model=target_model,
+                  contents=prompt
+              )
+          except Exception as e:
+              print(f"Model {target_model} error ({e}), switching to fallback...")
+              response = client.models.generate_content(
+                  model="gemini-2.5-flash",
+                  contents=prompt
+              )
+
+          text = response.text.strip()
           if text.startswith("```json"):
               text = text.split("```json")[1].split("```")[0].strip()
           elif text.startswith("```"):
