@@ -1,57 +1,205 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0D0D1A"
-    android:orientation="vertical"
-    android:padding="32dp"
-    android:gravity="center">
+    android:background="@android:color/black">
 
-    <ImageView
-        android:layout_width="80dp"
-        android:layout_height="80dp"
-        android:src="@android:drawable/ic_secure"
-        android:tint="#FF671F"
-        android:layout_marginBottom="16dp"/>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Private Vault"
-        android:textColor="#FFFFFF"
-        android:textSize="26sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="8dp"/>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Enter 4-Digit PIN to access hidden media"
-        android:textColor="#AAAAAA"
-        android:textSize="14sp"
-        android:layout_marginBottom="32dp"/>
-
-    <EditText
-        android:id="@+id/etVaultPin"
-        android:layout_width="200dp"
-        android:layout_height="wrap_content"
-        android:inputType="numberPassword"
-        android:maxLength="4"
-        android:textSize="24sp"
-        android:textColor="#FFFFFF"
-        android:textColorHint="#555555"
-        android:hint="••••"
+    <!-- Setup / Login Container -->
+    <LinearLayout
+        android:id="@+id/layoutAuth"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
         android:gravity="center"
-        android:letterSpacing="0.5"
-        android:backgroundTint="#00E5FF"
-        android:layout_marginBottom="32dp"/>
+        android:padding="24dp"
+        android:visibility="visible">
 
-    <Button
-        android:id="@+id/btnUnlockVault"
-        android:layout_width="200dp"
-        android:layout_height="50dp"
-        android:text="UNLOCK"
-        android:backgroundTint="#FF671F"
-        android:textColor="#FFFFFF"
-        android:textStyle="bold"/>
-</LinearLayout>
+        <TextView
+            android:id="@+id/tvVaultTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Private Vault"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/white"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:id="@+id/tvVaultSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Enter 6-digit PIN"
+            android:textSize="16sp"
+            android:textColor="@android:color/darker_gray"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- PIN Display Dots -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="32dp">
+
+            <View
+                android:id="@+id/pinDot1"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/bg_circle_outline"/>
+            <View
+                android:id="@+id/pinDot2"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/bg_circle_outline"/>
+            <View
+                android:id="@+id/pinDot3"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/bg_circle_outline"/>
+            <View
+                android:id="@+id/pinDot4"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/bg_circle_outline"/>
+            <View
+                android:id="@+id/pinDot5"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/bg_circle_outline"/>
+            <View
+                android:id="@+id/pinDot6"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/bg_circle_outline"/>
+        </LinearLayout>
+
+        <!-- Keypad Grid -->
+        <GridLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:columnCount="3"
+            android:alignmentMode="alignMargins"
+            android:columnOrderPreserved="false">
+
+            <Button
+                android:id="@+id/btn1" style="@style/Widget.AppCompat.Button.Borderless" android:text="1" android:textSize="22sp" android:textColor="@android:color/white" android:layout_width="80dp" android:layout_height="80dp"/>
+            <Button
+                android:id="@+id/btn2" style="@style/Widget.AppCompat.Button.Borderless" android:text="2" android:textSize="22sp" android:textColor="@android:color/white" android:layout_width="80dp" android:layout_height="80dp"/>
+            <Button
+                android:id="@+id/btn3" style="@style/Widget.AppCompat.Button.Borderless" android:text="3" android:textSize="22sp" android:textColor="@android:color/white" android:layout_width="80dp" android:layout_height="80dp"/>
+            <Button
+                android:id="@+id/btn4" style="@style/Widget.AppCompat.Button.Borderless" android:text="4" android:textSize="22sp" android:textColor="@android:color/white" android:layout_width="80dp" android:layout_height="80dp"/>
+            <Button
+                android:id="@+id/btn5" style="@style/Widget.AppCompat.Button.Borderless" android:text="5" android:textSize="22sp" android:textColor="@android:color/white" android:layout_width="80dp" android:layout_height="80dp"/>
+            <Button
+                android:id="@+id/btn6" style="@style/Widget.AppCompat.Button.Borderless" android:text="6" android:textSize="22sp" android:textColor="@android:color/white" android:layout_width="80dp" android:layout_height="80dp"/>
+            <Button
+                android:id="@+id/btn7" style="@style/Widget.AppCompat.Button.Borderless" android:text="7" android:textSize="22sp" android:textColor="@android:color/white" android:layout_width="80dp" android:layout_height="80dp"/>
+            <Button
+                android:id="@+id/btn8" style="@style/Widget.AppCompat.Button.Borderless" android:text="8" android:textSize="22sp" android:textColor="@android:color/white" android:layout_width="80dp" android:layout_height="80dp"/>
+            <Button
+                android:id="@+id/btn9" style="@style/Widget.AppCompat.Button.Borderless" android:text="9" android:textSize="22sp" android:textColor="@android:color/white" android:layout_width="80dp" android:layout_height="80dp"/>
+            <Button
+                android:id="@+id/btnForgot" style="@style/Widget.AppCompat.Button.Borderless" android:text="Forgot?" android:textSize="12sp" android:textColor="@android:color/darker_gray" android:layout_width="80dp" android:layout_height="80dp"/>
+            <Button
+                android:id="@+id/btn0" style="@style/Widget.AppCompat.Button.Borderless" android:text="0" android:textSize="22sp" android:textColor="@android:color/white" android:layout_width="80dp" android:layout_height="80dp"/>
+            <Button
+                android:id="@+id/btnDel" style="@style/Widget.AppCompat.Button.Borderless" android:text="⌫" android:textSize="20sp" android:textColor="@android:color/white" android:layout_width="80dp" android:layout_height="80dp"/>
+
+        </GridLayout>
+
+    </LinearLayout>
+
+    <!-- Security Question Setup / Recovery Layout -->
+    <LinearLayout
+        android:id="@+id/layoutSecuritySetup"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="24dp"
+        android:visibility="gone"
+        android:background="@android:color/black">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Security Recovery Setup"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/white"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:id="@+id/tvSecurityPrompt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="What is your birthplace?"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:layout_marginBottom="8dp"/>
+
+        <EditText
+            android:id="@+id/etSecurityAnswer"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:hint="Enter answer"
+            android:textColor="@android:color/white"
+            android:textColorHint="@android:color/darker_gray"
+            android:background="@android:drawable/editbox_background_normal"
+            android:padding="12dp"
+            android:layout_marginBottom="24dp"/>
+
+        <Button
+            android:id="@+id/btnSubmitSecurity"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:text="Confirm"
+            android:backgroundTint="@color/teal_200"
+            android:textColor="@android:color/black"/>
+
+    </LinearLayout>
+
+    <!-- Vault Content / Media List Layout -->
+    <LinearLayout
+        android:id="@+id/layoutVaultContent"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/vaultToolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@android:color/black"
+            app:title="Private Vault"
+            app:titleTextColor="@android:color/white"/>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvVaultMedia"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:padding="8dp"
+            android:clipToPadding="false"/>
+
+        <TextView
+            android:id="@+id/tvEmptyVault"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No hidden media in Vault"
+            android:textColor="@android:color/darker_gray"
+            android:textSize="16sp"
+            android:layout_gravity="center"
+            android:visibility="gone"/>
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
