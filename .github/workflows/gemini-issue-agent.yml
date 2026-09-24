@@ -36,8 +36,12 @@ jobs:
         run: |
           python - << 'EOF'
           import os
+          import sys
           import json
+          import re
+          import traceback
           from google import genai
+          from google.genai import types
 
           api_key = os.environ.get("GEMINI_API_KEY", "").strip()
           title = os.environ.get("ISSUE_TITLE", "")
@@ -45,45 +49,93 @@ jobs:
           issue_no = os.environ.get("ISSUE_NUMBER", "")
 
           if not api_key:
-              print("Error: GEMINI_API_KEY secret is missing or empty.")
-              exit(1)
+              print("FATAL: GEMINI_API_KEY secret is not set!")
+              sys.exit(1)
 
-          client = genai.Client(api_key=api_key)
+          # 1. Get repository file structure so Gemini knows exact file paths
+          all_files = []
+          for root, dirs, files in os.walk("."):
+              if ".git" in root or "build" in root:
+                  continue
+              for f in files:
+                  if f.endswith((".kt", ".java", ".xml", ".gradle", ".properties")):
+                      all_files.append(os.path.relpath(os.path.join(root, f), "."))
+          file_list_str = "\n".join(all_files[:100])
 
           prompt = f"""
-          You are an expert Android Kotlin developer working on an ExoPlayer/Media3 media player app named MAX.
-          User request from GitHub Issue #{issue_no}:
+          You are an expert Android developer building an ExoPlayer/Media3 media player named MAX.
+          Repository files:
+          {file_list_str}
+
+          Task from GitHub Issue #{issue_no}:
           Title: {title}
           Details: {body}
 
-          Determine the exact file to modify or create (for example: app/src/main/java/com/app/mediaplayer/PlayerActivity.kt).
-          Output strictly valid JSON with this exact format:
-          {{
-            "filepath": "app/src/main/java/com/app/mediaplayer/PlayerActivity.kt",
-            "content": "FULL_UPDATED_CODE_OF_FILE_WITHOUT_OMISSIONS"
-          }}
-          Do not include markdown backticks or any explanation outside the JSON.
+          Identify the single most appropriate file to modify or create to implement this feature.
+          Return a JSON object with:
+          - "filepath": Relative path to the file (e.g. app/src/main/java/.../PlayerActivity.kt)
+          - "content": Complete updated source code of the file.
+
+          Format strictly as:
+          {{"filepath": "path/to/file", "content": "full_code"}}
           """
 
-          response = client.models.generate_content(
-              model="gemini-3.6-flash",
-              contents=prompt
-          )
+          client = genai.Client(api_key=api_key)
 
-          text = response.text.strip()
-          if text.startswith("```json"):
-              text = text.split("```json")[1].split("```")[0].strip()
-          elif text.startswith("```"):
-              text = text.split("```")[1].split("```")[0].strip()
+          # 2. Try the primary model chain
+          candidate_models = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
+          response = None
+          used_model = None
 
-          data = json.loads(text)
-          filepath = data["filepath"]
-          content = data["content"]
+          for model_name in candidate_models:
+              try:
+                  print(f"Attempting model: {model_name}...")
+                  response = client.models.generate_content(
+                      model=model_name,
+                      contents=prompt,
+                      config=types.GenerateContentConfig(
+                          response_mime_type="application/json"
+                      )
+                  )
+                  used_model = model_name
+                  print(f"Success with model: {used_model}")
+                  break
+              except Exception as err:
+                  print(f"Model {model_name} failed: {err}")
+
+          if not response or not response.text:
+              print("FATAL: All model requests failed!")
+              sys.exit(1)
+
+          raw_text = response.text.strip()
+          print("Raw response received, length:", len(raw_text))
+
+          # 3. Robust JSON extraction
+          try:
+              data = json.loads(raw_text)
+          except Exception:
+              json_match = re.search(r"\{[\s\S]*\}", raw_text)
+              if json_match:
+                  data = json.loads(json_match.group(0))
+              else:
+                  raise ValueError("No valid JSON found in model output")
+
+          filepath = data.get("filepath", "").strip()
+          content = data.get("content", "")
+
+          if not filepath or not content:
+              print("FATAL: Incomplete JSON returned (missing filepath or content)")
+              sys.exit(1)
+
+          # Normalize filepath
+          if filepath.startswith("./"):
+              filepath = filepath[2:]
 
           os.makedirs(os.path.dirname(filepath), exist_ok=True)
           with open(filepath, "w", encoding="utf-8") as f:
               f.write(content)
-          print(f"File {filepath} successfully updated.")
+
+          print(f"Successfully updated {filepath} using {used_model}!")
           EOF
 
       - name: Commit and Push Changes
@@ -92,19 +144,24 @@ jobs:
           git config --global user.email "agent@gemini.ai"
           git add -A
           if git diff --staged --quiet; then
-            echo "No changes to commit"
+            echo "No changes detected to commit."
           else
             git commit -m "Auto-implemented Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}"
-            git push
+            git push origin HEAD:${{ github.ref_name }}
           fi
 
       - name: Comment on Issue
+        if: always()
         uses: actions/github-script@v7
         with:
           script: |
+            const status = '${{ job.status }}';
+            const body = status === 'success'
+              ? '✅ Task completed successfully! Changes committed to the repository and APK build started.'
+              : '❌ Task execution encountered an error. Please check the Action run logs.';
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: 'Task completed successfully and changes committed to repository.'
+              body: body
             })
