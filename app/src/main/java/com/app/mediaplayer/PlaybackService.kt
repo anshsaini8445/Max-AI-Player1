@@ -20,6 +20,7 @@ import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp3.Mp3Extractor
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.media3.session.MediaStyleNotificationHelper
 
 @OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
@@ -120,15 +121,12 @@ class PlaybackService : MediaSessionService() {
     private fun buildSystemNotification(): Notification {
         val currentTitle = player?.currentMediaItem?.mediaMetadata?.title?.toString() ?: "MAX Audio"
 
-        // Play/Pause Action Intent
         val playPauseIntent = Intent(this, PlaybackService::class.java).apply { action = ACTION_PLAY_PAUSE }
         val pPlayPause = PendingIntent.getService(this, 1, playPauseIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
-        // Next Action Intent
         val nextIntent = Intent(this, PlaybackService::class.java).apply { action = ACTION_NEXT }
         val pNext = PendingIntent.getService(this, 2, nextIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
-        // Prev Action Intent
         val prevIntent = Intent(this, PlaybackService::class.java).apply { action = ACTION_PREV }
         val pPrev = PendingIntent.getService(this, 3, prevIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
@@ -142,7 +140,7 @@ class PlaybackService : MediaSessionService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(currentTitle)
             .setContentText("MAX Player Audio Engine")
             .setSmallIcon(android.R.drawable.ic_media_play)
@@ -153,11 +151,15 @@ class PlaybackService : MediaSessionService() {
             .addAction(android.R.drawable.ic_media_previous, "Previous", pPrev)
             .addAction(playIcon, if (isPlaying) "Pause" else "Play", pPlayPause)
             .addAction(android.R.drawable.ic_media_next, "Next", pNext)
-            .setStyle(
-                androidx.media.app.NotificationCompat.MediaStyle()
+
+        mediaSession?.let {
+            builder.setStyle(
+                MediaStyleNotificationHelper.MediaStyle(it)
                     .setShowActionsInCompactView(0, 1, 2)
             )
-            .build()
+        }
+
+        return builder.build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
