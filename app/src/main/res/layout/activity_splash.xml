@@ -3,8 +3,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0C0D14">
+    android:background="#0A0B12">
 
+    <!-- Center Branding: MAX -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -13,50 +14,49 @@
         android:orientation="vertical">
 
         <androidx.cardview.widget.CardView
-            android:layout_width="90dp"
-            android:layout_height="90dp"
-            android:layout_marginBottom="18dp"
-            app:cardBackgroundColor="#161824"
+            android:layout_width="92dp"
+            android:layout_height="92dp"
+            android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="#141624"
             app:cardCornerRadius="24dp"
-            app:cardElevation="10dp">
+            app:cardElevation="8dp">
 
             <ImageView
-                android:layout_width="50dp"
-                android:layout_height="50dp"
+                android:layout_width="54dp"
+                android:layout_height="54dp"
                 android:layout_gravity="center"
-                android:src="@android:drawable/ic_media_play"
-                app:tint="#00E5FF" />
+                android:src="@drawable/ic_launcher_max" />
         </androidx.cardview.widget.CardView>
 
+        <!-- Only "MAX" as requested -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="MX Player"
+            android:text="MAX"
             android:textColor="#FFFFFF"
-            android:textSize="26sp"
+            android:textSize="32sp"
             android:textStyle="bold" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:letterSpacing="0.08"
-            android:text="Video Music Games"
+            android:letterSpacing="0.1"
+            android:text="Video • Music • Stream"
             android:textColor="#00E5FF"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>
 
+    <!-- Bottom Line -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:layout_marginHorizontal="24dp"
         android:layout_marginBottom="32dp"
         android:gravity="center"
-        android:lineSpacingExtra="3dp"
-        android:text="Video Music Smoothly Play Music Videos MX Player"
+        android:text="Fast • Smooth • All Formats"
         android:textColor="#7A7B90"
-        android:textSize="13sp" />
+        android:textSize="12sp" />
 
 </RelativeLayout>
