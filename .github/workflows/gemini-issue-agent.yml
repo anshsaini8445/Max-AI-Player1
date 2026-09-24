@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Google Official GenAI SDK
+      - name: Install Google GenAI SDK
         run: |
           pip install --quiet google-genai
 
@@ -64,21 +64,11 @@ jobs:
           Do not include markdown backticks or any explanation outside the JSON.
           """
 
-          # Exact model requested by Google
-          target_model = "gemini-3.6-flash"
-          print(f"Connecting to: {target_model}")
-
-          try:
-              response = client.models.generate_content(
-                  model=target_model,
-                  contents=prompt
-              )
-          except Exception as e:
-              print(f"Model {target_model} error ({e}), switching to fallback...")
-              response = client.models.generate_content(
-                  model="gemini-2.5-flash",
-                  contents=prompt
-              )
+          # Seedha 3.6-flash model
+          response = client.models.generate_content(
+              model="gemini-3.6-flash",
+              contents=prompt
+          )
 
           text = response.text.strip()
           if text.startswith("```json"):
@@ -93,7 +83,7 @@ jobs:
           os.makedirs(os.path.dirname(filepath), exist_ok=True)
           with open(filepath, "w", encoding="utf-8") as f:
               f.write(content)
-          print(f"File {filepath} successfully auto-updated by Gemini Agent!")
+          print(f"File {filepath} successfully auto-updated by Gemini 3.6 Agent!")
           EOF
 
       - name: Commit and Push Changes
