@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  code-agent-and-build:
+  code-agent:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -62,17 +62,23 @@ jobs:
 
           file_list_str = "\n".join(sorted(all_files)[:150])
 
-          prompt = f"""You are an expert Android developer building MAX media player (ExoPlayer/Media3).
+          prompt = f"""You are an expert Android developer specializing in Media3/ExoPlayer.
+          App name: MAX.
+          
+          CRITICAL MEDIA3 RULES:
+          - PlayerView does NOT have 'isControllerVisible'. Use 'isControllerFullyVisible()' or showController()/hideController().
+          - Ensure all Kotlin code compiles with strict type safety.
+
           Repository files:
           {file_list_str}
 
-          User Request from Issue #{issue_no}:
+          Task from GitHub Issue #{issue_no}:
           Title: {title}
           Details: {body}
 
-          Determine the files to modify or create. Return ONLY a valid JSON object in this exact format:
+          Return ONLY a valid JSON object in this exact format:
           {{
-            "summary": "Short explanation of changes",
+            "summary": "Short explanation of fix",
             "files": [
               {{
                 "filepath": "app/src/main/java/path/to/File.kt",
@@ -88,7 +94,7 @@ jobs:
 
           for model_name in candidate_models:
               try:
-                  print(f"Connecting to model: {model_name}...")
+                  print(f"Trying model: {model_name}...")
                   response = client.models.generate_content(
                       model=model_name,
                       contents=prompt,
@@ -103,7 +109,7 @@ jobs:
                   print(f"Model {model_name} failed: {err}")
 
           if not response or not getattr(response, "text", None):
-              print("FATAL: All model calls failed.")
+              print("FATAL: All model requests failed!")
               sys.exit(1)
 
           raw_text = response.text.strip()
@@ -114,9 +120,10 @@ jobs:
               data = json.loads(match.group(0)) if match else None
 
           if not data or not isinstance(data.get("files"), list):
-              print("FATAL: Could not parse response files.")
+              print("FATAL: Invalid JSON structure")
               sys.exit(1)
 
+          changed = []
           for item in data["files"]:
               fp = item.get("filepath", "").strip().replace("\\", "/")
               if fp.startswith("./"): fp = fp[2:]
@@ -125,21 +132,22 @@ jobs:
               Path(fp).parent.mkdir(parents=True, exist_ok=True)
               with open(fp, "w", encoding="utf-8") as f:
                   f.write(item.get("content", ""))
-              print(f"Updated file: {fp}")
+              changed.append(fp)
+              print(f"Updated: {fp}")
 
           with open("agent_summary.txt", "w", encoding="utf-8") as f:
-              f.write(data.get("summary", "Automated feature implementation"))
+              f.write(data.get("summary", "Automated code update"))
           EOF
 
-      - name: Commit and Push Code Changes
+      - name: Commit and Push to Main
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if git diff --staged --quiet; then
-            echo "No code changes detected."
+            echo "No changes to commit."
           else
-            SUMMARY=$(cat agent_summary.txt 2>/dev/null || echo "Feature implementation")
+            SUMMARY=$(cat agent_summary.txt 2>/dev/null || echo "Automated update")
             git commit -m "Auto-implement Issue #${{ github.event.issue.number }}: $SUMMARY"
             git push origin HEAD:main
           fi
@@ -171,8 +179,8 @@ jobs:
           script: |
             const status = '${{ job.status }}';
             const body = status === 'success'
-              ? '✅ Task complete! Gemini has updated the code and built your new APK successfully. You can download the APK from the Artifacts section in this Action run.'
-              : '❌ Execution failed. Please check the logs.';
+              ? '✅ Task complete! Gemini fixed the code and built your new APK. Download it from the Artifacts section above.'
+              : '❌ Build failed. Please check compiler logs.';
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
