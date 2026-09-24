@@ -2,7 +2,7 @@ name: Gemini Issue Coder Agent
 
 on:
   issues:
-    types: [opened]
+    types: [opened, reopened]
 
 permissions:
   contents: write
@@ -22,6 +22,10 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Install Official Google AI SDK
+        run: |
+          pip install --quiet google-generativeai
+
       - name: Run Gemini Agent
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -31,12 +35,35 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python - << 'EOF'
-          import os, json, urllib.request
+          import os, json
+          import google.generativeai as genai
 
-          api_key = os.environ.get("GEMINI_API_KEY")
+          api_key = os.environ.get("GEMINI_API_KEY", "").strip()
           title = os.environ.get("ISSUE_TITLE", "")
           body = os.environ.get("ISSUE_BODY", "")
-          issue_no = os.environ.get("ISSUE_NUMBER")
+
+          if not api_key:
+              print("GEMINI_API_KEY secret nahi mila!")
+              exit(1)
+
+          genai.configure(api_key=api_key)
+
+          # Auto-select active model without 404 error
+          chosen_model = "gemini-1.5-flash"
+          try:
+              available = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+              for m in available:
+                  if "flash" in m.lower():
+                      chosen_model = m
+                      break
+              else:
+                  if available:
+                      chosen_model = available[0]
+          except Exception as e:
+              print(f"Model selection fallback: {e}")
+
+          print(f"Connecting to model: {chosen_model}")
+          model = genai.GenerativeModel(chosen_model)
 
           prompt = f"""
           You are an expert Android Kotlin developer working on an ExoPlayer/Media3 media player app named MAX.
@@ -44,38 +71,31 @@ jobs:
           Title: {title}
           Details: {body}
 
-          Determine the exact file to create or modify. Return strictly valid JSON in this format:
+          Determine the exact file to modify or create (for example: app/src/main/java/com/app/mediaplayer/PlayerActivity.kt).
+          Output strictly valid JSON with this exact format:
           {{
-            "filepath": "exact/path/to/file.kt",
-            "content": "FULL_UPDATED_CODE_WITHOUT_OMISSIONS"
+            "filepath": "app/src/main/java/com/app/mediaplayer/PlayerActivity.kt",
+            "content": "FULL_UPDATED_CODE_OF_FILE_WITHOUT_OMISSIONS"
           }}
-          Do not include markdown blocks or text outside the JSON.
+          Do not include markdown backticks or any explanation outside the JSON.
           """
 
-          url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-          req_data = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode("utf-8")
-          req = urllib.request.Request(url, data=req_data, headers={"Content-Type": "application/json"})
-          
-          try:
-              with urllib.request.urlopen(req) as res:
-                  resp_json = json.loads(res.read().decode())
-                  text = resp_json['candidates'][0]['content']['parts'][0]['text'].strip()
-                  if text.startswith("```json"):
-                      text = text.split("```json")[1].split("```")[0].strip()
-                  elif text.startswith("```"):
-                      text = text.split("```")[1].split("```")[0].strip()
-                  
-                  data = json.loads(text)
-                  filepath = data['filepath']
-                  content = data['content']
+          response = model.generate_content(prompt)
+          text = response.text.strip()
 
-                  os.makedirs(os.path.dirname(filepath), exist_ok=True)
-                  with open(filepath, "w", encoding="utf-8") as f:
-                      f.write(content)
-                  print(f"File {filepath} successfully updated by Gemini.")
-          except Exception as e:
-              print(f"Agent Execution Error: {e}")
-              exit(1)
+          if text.startswith("```json"):
+              text = text.split("```json")[1].split("```")[0].strip()
+          elif text.startswith("```"):
+              text = text.split("```")[1].split("```")[0].strip()
+
+          data = json.loads(text)
+          filepath = data['filepath']
+          content = data['content']
+
+          os.makedirs(os.path.dirname(filepath), exist_ok=True)
+          with open(filepath, "w", encoding="utf-8") as f:
+              f.write(content)
+          print(f"File {filepath} successfully auto-updated by Gemini Agent!")
           EOF
 
       - name: Commit and Push Changes
@@ -84,9 +104,9 @@ jobs:
           git config --global user.email "agent@gemini.ai"
           git add -A
           if git diff --staged --quiet; then
-            echo "No changes to commit"
+            echo "No changes needed"
           else
-            git commit -m "Auto-update from Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}"
+            git commit -m "Auto-implemented Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}"
             git push
           fi
 
@@ -98,5 +118,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '✅ Agent ne task pura karke code repository mein commit kar diya hai! Build shuru ho chuka hai.'
+              body: '✅ Agent ne task pura karke code repository mein commit kar diya hai! Naya APK build shuru ho chuka hai.'
             })
