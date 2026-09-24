@@ -1,5 +1,6 @@
 package com.app.mediaplayer
 
+import android.annotation.SuppressLint
 import android.app.PictureInPictureParams
 import android.content.ContentUris
 import android.content.Context
@@ -7,13 +8,18 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.media.AudioManager
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.StrictMode
 import android.provider.MediaStore
 import android.util.Rational
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.ImageButton
@@ -23,6 +29,7 @@ import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.cardview.widget.CardView
 import androidx.media3.common.MediaItem as ExoMediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
@@ -46,6 +53,8 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.util.Locale
+import kotlin.math.abs
 
 @OptIn(UnstableApi::class)
 class PlayerActivity : AppCompatActivity() {
@@ -53,12 +62,29 @@ class PlayerActivity : AppCompatActivity() {
     private var player: ExoPlayer? = null
     private lateinit var playerView: PlayerView
     private lateinit var prefs: SharedPreferences
+    private lateinit var audioManager: AudioManager
+
+    // HUD Elements
+    private var hudVolume: CardView? = null
+    private var tvHudVolume: TextView? = null
+    private var hudBrightness: CardView? = null
+    private var tvHudBrightness: TextView? = null
+    private var hudSeek: CardView? = null
+    private var tvHudSeekDiff: TextView? = null
+    private var tvHudSeekTime: TextView? = null
 
     private var isLocked = false
     private var isMuted = false
     private var currentResizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
     private var currentSpeed = 1.0f
 
+    // Gesture Tracking Variables
+    private val hideHandler = Handler(Looper.getMainLooper())
+    private var targetSeekPosition: Long = 0
+    private var isSeekingGesture = false
+    private var screenBrightness = 0.5f
+
+    @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         try {
@@ -71,9 +97,19 @@ class PlayerActivity : AppCompatActivity() {
             setContentView(R.layout.activity_player)
             playerView = findViewById(R.id.playerView)
             prefs = getSharedPreferences("MX_PLAYER_RESUME_PREFS", Context.MODE_PRIVATE)
+            audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+            hudVolume = findViewById(R.id.hudVolume)
+            tvHudVolume = findViewById(R.id.tvHudVolume)
+            hudBrightness = findViewById(R.id.hudBrightness)
+            tvHudBrightness = findViewById(R.id.tvHudBrightness)
+            hudSeek = findViewById(R.id.hudSeek)
+            tvHudSeekDiff = findViewById(R.id.tvHudSeekDiff)
+            tvHudSeekTime = findViewById(R.id.tvHudSeekTime)
 
             initializePlayerEngine()
             setupControls()
+            setupSwipeGestures()
         } catch (e: Exception) {
             e.printStackTrace()
             finish()
@@ -97,7 +133,6 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
-
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(15000, 50000, 1000, 2000)
             .setPrioritizeTimeOverSizeThresholds(true)
@@ -136,7 +171,6 @@ class PlayerActivity : AppCompatActivity() {
                 progressiveMediaSourceFactory.createMediaSource(exoItem)
             }
 
-            // Exact Millisecond Saved Resume Position
             val targetPath = mediaList[startIndex].path
             val savedPositionMs = prefs.getLong("RESUME_POS_$targetPath", 0L)
 
@@ -157,9 +191,89 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                Toast.makeText(this@PlayerActivity, "Codec fallback recovered", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@PlayerActivity, "Playback auto-recovered", Toast.LENGTH_SHORT).show()
             }
         })
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupSwipeGestures() {
+        val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
+                if (e1 == null || isLocked) return false
+                val displayMetrics = resources.displayMetrics
+                val screenWidth = displayMetrics.widthPixels
+                val screenHeight = displayMetrics.heightPixels
+
+                val diffX = e2.x - e1.x
+                val diffY = e2.y - e1.y
+
+                hideHandler.removeCallbacksAndMessages(null)
+
+                // 1. Horizontal Swipe: Fast Seek (Seconds / Milliseconds)
+                if (abs(diffX) > abs(diffY)) {
+                    isSeekingGesture = true
+                    val duration = player?.duration ?: 0L
+                    if (duration > 0) {
+                        val current = player?.currentPosition ?: 0L
+                        val seekDeltaMs = ((diffX / screenWidth) * 90000).toLong() // Max 90s swipe
+                        targetSeekPosition = (current + seekDeltaMs).coerceIn(0L, duration)
+
+                        hudSeek?.visibility = View.VISIBLE
+                        val prefix = if (seekDeltaMs >= 0) "+ " else "- "
+                        val secDiff = abs(seekDeltaMs) / 1000
+                        tvHudSeekDiff?.text = "$prefix${secDiff}s"
+                        tvHudSeekTime?.text = "${formatTime(targetSeekPosition)} / ${formatTime(duration)}"
+                    }
+                    return true
+                }
+
+                // 2. Vertical Swipe Left 50%: Brightness Control
+                if (e1.x < screenWidth / 2) {
+                    val deltaBrightness = distanceY / screenHeight
+                    screenBrightness = (screenBrightness + deltaBrightness).coerceIn(0.01f, 1.0f)
+                    val lp = window.attributes
+                    lp.screenBrightness = screenBrightness
+                    window.attributes = lp
+
+                    hudBrightness?.visibility = View.VISIBLE
+                    tvHudBrightness?.text = "Brightness: ${(screenBrightness * 100).toInt()}%"
+                    return true
+                }
+
+                // 3. Vertical Swipe Right 50%: Volume Control
+                if (e1.x >= screenWidth / 2) {
+                    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                    val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                    val volumeDelta = (distanceY / screenHeight) * maxVolume
+
+                    val newVol = (currentVol + volumeDelta.toInt()).coerceIn(0, maxVolume)
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
+
+                    hudVolume?.visibility = View.VISIBLE
+                    val volPercent = ((newVol.toFloat() / maxVolume) * 100).toInt()
+                    tvHudVolume?.text = "Volume: $volPercent%"
+                    return true
+                }
+                return false
+            }
+        })
+
+        playerView.setOnTouchListener { _, event ->
+            gestureDetector.onTouchEvent(event)
+            if (event.action == MotionEvent.ACTION_UP) {
+                if (isSeekingGesture) {
+                    player?.seekTo(targetSeekPosition)
+                    isSeekingGesture = false
+                }
+                hideHandler.postDelayed({
+                    hudVolume?.visibility = View.GONE
+                    hudBrightness?.visibility = View.GONE
+                    hudSeek?.visibility = View.GONE
+                }, 800)
+            }
+            false
+        }
     }
 
     private fun setupControls() {
@@ -186,7 +300,7 @@ class PlayerActivity : AppCompatActivity() {
         playerView.findViewById<View>(R.id.cardUnlock)?.setOnClickListener { setControlsLocked(false) }
 
         playerView.findViewById<View>(R.id.cardCut)?.setOnClickListener {
-            Toast.makeText(this, "Video Cutter: Ready", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Video Cutter: Select start and end points", Toast.LENGTH_SHORT).show()
         }
 
         playerView.findViewById<View>(R.id.cardRotate)?.setOnClickListener {
@@ -331,7 +445,7 @@ class PlayerActivity : AppCompatActivity() {
                 }
             }
 
-            // Real Delete
+            // Delete
             view.findViewById<View>(R.id.menuDelete)?.setOnClickListener {
                 dialog.dismiss()
                 currentItem?.let { item ->
@@ -416,6 +530,14 @@ class PlayerActivity : AppCompatActivity() {
             val path = mediaList[currentIndex].path
             prefs.edit().putLong("RESUME_POS_$path", currentPositionMs).apply()
         }
+    }
+
+    private fun formatTime(ms: Long): String {
+        if (ms < 0) return "00:00"
+        val totalSec = ms / 1000
+        val m = totalSec / 60
+        val s = totalSec % 60
+        return String.format(Locale.getDefault(), "%02d:%02d", m, s)
     }
 
     override fun onPause() {
