@@ -60,32 +60,28 @@ jobs:
                   if f.endswith((".kt", ".java", ".xml", ".gradle", ".kts", ".properties")):
                       all_files.append(os.path.relpath(os.path.join(root, f), "."))
 
-          existing_player_code = ""
-          player_path = "app/src/main/java/com/app/mediaplayer/PlayerActivity.kt"
-          if os.path.exists(player_path):
-              with open(player_path, "r", encoding="utf-8") as f:
-                  existing_player_code = f.read()
+          file_list_str = "\n".join(sorted(all_files)[:150])
 
-          prompt = f"""You are an expert Android developer building MAX media player.
-          Existing PlayerActivity.kt code:
-          {existing_player_code}
+          prompt = f"""You are an expert Android developer building MAX media player (ExoPlayer/Media3).
+          Repository structure:
+          {file_list_str}
 
           Task from Issue #{issue_no}:
           Title: {title}
           Details: {body}
 
           CRITICAL RULES:
-          1. Do NOT invent R.id elements that do not exist in the layout.
-          2. Do NOT use deprecated isControllerVisible.
-          3. Keep existing working methods intact.
+          1. Return valid JSON only.
+          2. Always provide the COMPLETE file content without cuts.
+          3. Maintain correct Android packages and imports.
 
-          Output strictly valid JSON:
+          Output format:
           {{
             "summary": "Short explanation",
             "files": [
               {{
-                "filepath": "{player_path}",
-                "content": "FULL_UPDATED_CODE"
+                "filepath": "relative/path/to/File.kt",
+                "content": "FULL_CODE"
               }}
             ]
           }}
@@ -97,7 +93,7 @@ jobs:
 
           for model_name in candidate_models:
               try:
-                  print(f"Trying model: {model_name}...")
+                  print(f"Connecting to model: {model_name}...")
                   response = client.models.generate_content(
                       model=model_name,
                       contents=prompt,
@@ -112,6 +108,7 @@ jobs:
                   print(f"Model {model_name} failed: {err}")
 
           if not response or not getattr(response, "text", None):
+              print("FATAL: All model calls failed.")
               sys.exit(1)
 
           raw_text = response.text.strip()
@@ -154,17 +151,34 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Grant Execute Permission for Gradlew
-        run: chmod +x gradlew
-
-      - name: Build Android Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+      - name: Auto-Find Gradlew and Build APK
+        run: |
+          GRADLEW_FILE=$(find . -name "gradlew" -type f | head -n 1)
+          if [ -n "$GRADLEW_FILE" ]; then
+            echo "Found gradlew at: $GRADLEW_FILE"
+            chmod +x "$GRADLEW_FILE"
+            PROJECT_DIR=$(dirname "$GRADLEW_FILE")
+            echo "Navigating to: $PROJECT_DIR"
+            cd "$PROJECT_DIR"
+            ./gradlew assembleDebug --no-daemon
+          else
+            echo "Searching for gradle wrapper jar..."
+            WRAPPER_JAR=$(find . -name "gradle-wrapper.jar" -type f | head -n 1)
+            if [ -n "$WRAPPER_JAR" ]; then
+              PROJECT_DIR=$(dirname "$(dirname "$(dirname "$WRAPPER_JAR")")")
+              cd "$PROJECT_DIR"
+              java -jar "$WRAPPER_JAR" assembleDebug --no-daemon
+            else
+              echo "FATAL: Neither gradlew nor gradle wrapper found!"
+              exit 1
+            fi
+          fi
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: MAX-Player-APK
-          path: app/build/outputs/apk/debug/*.apk
+          path: "**/build/outputs/apk/debug/*.apk"
           retention-days: 7
 
       - name: Comment on Issue
@@ -174,8 +188,8 @@ jobs:
           script: |
             const status = '${{ job.status }}';
             const body = status === 'success'
-              ? '✅ APK ready! Download MAX-Player-APK from Artifacts section in this run.'
-              : '❌ Build failed. Please check compiler logs.';
+              ? '✅ Success! Gemini has implemented your feature and built the APK. Download MAX-Player-APK from the Artifacts section above.'
+              : '❌ Execution failed. Please check logs.';
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
