@@ -1,0 +1,1 @@
+Added double tap to seek forward or backward by 10 seconds in PlayerActivity, along with visual feedback overlays.
