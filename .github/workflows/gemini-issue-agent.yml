@@ -50,7 +50,7 @@ jobs:
           issue_no = os.environ.get("ISSUE_NUMBER", "")
 
           if not api_key:
-              print("FATAL: GEMINI_API_KEY secret is not set!")
+              print("GEMINI_API_KEY missing!")
               sys.exit(1)
 
           all_files = []
@@ -60,29 +60,32 @@ jobs:
                   if f.endswith((".kt", ".java", ".xml", ".gradle", ".kts", ".properties")):
                       all_files.append(os.path.relpath(os.path.join(root, f), "."))
 
-          file_list_str = "\n".join(sorted(all_files)[:150])
+          existing_player_code = ""
+          player_path = "app/src/main/java/com/app/mediaplayer/PlayerActivity.kt"
+          if os.path.exists(player_path):
+              with open(player_path, "r", encoding="utf-8") as f:
+                  existing_player_code = f.read()
 
-          prompt = f"""You are an expert Android developer specializing in Media3/ExoPlayer.
-          App name: MAX.
-          
-          CRITICAL MEDIA3 RULES:
-          - PlayerView does NOT have 'isControllerVisible'. Use 'isControllerFullyVisible()' or showController()/hideController().
-          - Ensure all Kotlin code compiles with strict type safety.
+          prompt = f"""You are an expert Android developer building MAX media player.
+          Existing PlayerActivity.kt code:
+          {existing_player_code}
 
-          Repository files:
-          {file_list_str}
-
-          Task from GitHub Issue #{issue_no}:
+          Task from Issue #{issue_no}:
           Title: {title}
           Details: {body}
 
-          Return ONLY a valid JSON object in this exact format:
+          CRITICAL RULES:
+          1. Do NOT invent R.id elements that do not exist in the layout.
+          2. Do NOT use deprecated isControllerVisible.
+          3. Keep existing working methods intact.
+
+          Output strictly valid JSON:
           {{
-            "summary": "Short explanation of fix",
+            "summary": "Short explanation",
             "files": [
               {{
-                "filepath": "app/src/main/java/path/to/File.kt",
-                "content": "FULL_UPDATED_CONTENT"
+                "filepath": "{player_path}",
+                "content": "FULL_UPDATED_CODE"
               }}
             ]
           }}
@@ -109,7 +112,6 @@ jobs:
                   print(f"Model {model_name} failed: {err}")
 
           if not response or not getattr(response, "text", None):
-              print("FATAL: All model requests failed!")
               sys.exit(1)
 
           raw_text = response.text.strip()
@@ -119,35 +121,28 @@ jobs:
               match = re.search(r"\{[\s\S]*\}", raw_text)
               data = json.loads(match.group(0)) if match else None
 
-          if not data or not isinstance(data.get("files"), list):
-              print("FATAL: Invalid JSON structure")
-              sys.exit(1)
-
-          changed = []
-          for item in data["files"]:
+          for item in data.get("files", []):
               fp = item.get("filepath", "").strip().replace("\\", "/")
               if fp.startswith("./"): fp = fp[2:]
               if ".." in fp or fp.startswith("/"): continue
-
               Path(fp).parent.mkdir(parents=True, exist_ok=True)
               with open(fp, "w", encoding="utf-8") as f:
                   f.write(item.get("content", ""))
-              changed.append(fp)
               print(f"Updated: {fp}")
 
           with open("agent_summary.txt", "w", encoding="utf-8") as f:
               f.write(data.get("summary", "Automated code update"))
           EOF
 
-      - name: Commit and Push to Main
+      - name: Commit and Push Code Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if git diff --staged --quiet; then
-            echo "No changes to commit."
+            echo "No changes."
           else
-            SUMMARY=$(cat agent_summary.txt 2>/dev/null || echo "Automated update")
+            SUMMARY=$(cat agent_summary.txt 2>/dev/null || echo "Feature implementation")
             git commit -m "Auto-implement Issue #${{ github.event.issue.number }}: $SUMMARY"
             git push origin HEAD:main
           fi
@@ -179,7 +174,7 @@ jobs:
           script: |
             const status = '${{ job.status }}';
             const body = status === 'success'
-              ? '✅ Task complete! Gemini fixed the code and built your new APK. Download it from the Artifacts section above.'
+              ? '✅ APK ready! Download MAX-Player-APK from Artifacts section in this run.'
               : '❌ Build failed. Please check compiler logs.';
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
