@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permissions -->
+    <!-- All Storage, Background & Playback Permissions -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
@@ -15,13 +15,13 @@
 
     <application
         android:allowBackup="true"
-        android:icon="@android:drawable/sym_def_app_icon"
-        android:label="MX Player"
+        android:icon="@drawable/ic_launcher_max"
+        android:label="MAX"
         android:supportsRtl="true"
         android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
         tools:targetApi="34">
 
-        <!-- 1. Splash Screen -->
+        <!-- 1. Splash Screen Launcher -->
         <activity
             android:name=".SplashActivity"
             android:exported="true"
@@ -32,7 +32,7 @@
             </intent-filter>
         </activity>
 
-        <!-- 2. Main Screen -->
+        <!-- 2. Main Screen (4 Bottom Tabs, History, Search, Me) -->
         <activity
             android:name=".MainActivity"
             android:exported="false"
@@ -45,17 +45,17 @@
             android:exported="false"
             android:supportsPictureInPicture="true" />
 
-        <!-- 4. Rotating Vinyl CD Audio Player -->
+        <!-- 4. Audio Player Activity -->
         <activity
             android:name=".AudioPlayerActivity"
             android:exported="false" />
 
-        <!-- 5. Monthly & Yearly VIP Pass Screen -->
+        <!-- 5. VIP Subscription Pass -->
         <activity
             android:name=".SubscriptionActivity"
             android:exported="false" />
 
-        <!-- 6. Full Settings Screen -->
+        <!-- 6. Full Settings Activity -->
         <activity
             android:name=".SettingsActivity"
             android:exported="false" />
