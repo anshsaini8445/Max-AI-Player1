@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:background="#0C0D14">
 
-    <!-- TOP BAR & TABS CONTAINER -->
+    <!-- TOP BAR & TABS -->
     <LinearLayout
         android:id="@+id/topContainer"
         android:layout_width="match_parent"
@@ -13,7 +13,7 @@
         android:layout_alignParentTop="true"
         android:orientation="vertical">
 
-        <!-- Top Header: Title is strictly MAX -->
+        <!-- Top Header -->
         <RelativeLayout
             android:id="@+id/topBar"
             android:layout_width="match_parent"
@@ -41,7 +41,7 @@
                 app:tint="#FFD700" />
         </RelativeLayout>
 
-        <!-- Dynamic History Section -->
+        <!-- Dynamic History Section With Real Photos/Thumbnails -->
         <LinearLayout
             android:id="@+id/historyBlock"
             android:layout_width="match_parent"
@@ -69,7 +69,7 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal">
 
-                    <!-- History Card 1: Video -->
+                    <!-- History Card 1 (Video Preview Photo) -->
                     <androidx.cardview.widget.CardView
                         android:id="@+id/cardHistory1"
                         android:layout_width="160dp"
@@ -81,30 +81,36 @@
 
                         <RelativeLayout
                             android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:padding="8dp">
+                            android:layout_height="match_parent">
 
                             <ImageView
-                                android:layout_width="28dp"
-                                android:layout_height="28dp"
-                                android:layout_centerVertical="true"
-                                android:src="@android:drawable/ic_media_play"
-                                app:tint="#FFFFFF" />
+                                android:id="@+id/imgHistory1Thumb"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:scaleType="centerCrop"
+                                android:src="@android:drawable/ic_media_play" />
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="36dp"
+                                android:layout_alignParentBottom="true"
+                                android:background="#99000000" />
 
                             <TextView
                                 android:id="@+id/tvHistory1Title"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_alignParentBottom="true"
+                                android:padding="6dp"
                                 android:ellipsize="end"
-                                android:maxLines="2"
+                                android:singleLine="true"
                                 android:text="Recent Video"
                                 android:textColor="#FFFFFF"
                                 android:textSize="12sp" />
                         </RelativeLayout>
                     </androidx.cardview.widget.CardView>
 
-                    <!-- History Card 2: Audio -->
+                    <!-- History Card 2 (Audio Album Art) -->
                     <androidx.cardview.widget.CardView
                         android:id="@+id/cardHistory2"
                         android:layout_width="160dp"
@@ -115,23 +121,29 @@
 
                         <RelativeLayout
                             android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:padding="8dp">
+                            android:layout_height="match_parent">
 
                             <ImageView
-                                android:layout_width="28dp"
-                                android:layout_height="28dp"
-                                android:layout_centerVertical="true"
-                                android:src="@android:drawable/ic_media_ff"
-                                app:tint="#FFFFFF" />
+                                android:id="@+id/imgHistory2Thumb"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:scaleType="centerCrop"
+                                android:src="@android:drawable/ic_media_ff" />
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="36dp"
+                                android:layout_alignParentBottom="true"
+                                android:background="#99000000" />
 
                             <TextView
                                 android:id="@+id/tvHistory2Title"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_alignParentBottom="true"
+                                android:padding="6dp"
                                 android:ellipsize="end"
-                                android:maxLines="2"
+                                android:singleLine="true"
                                 android:text="Recent Audio"
                                 android:textColor="#FFFFFF"
                                 android:textSize="12sp" />
@@ -141,7 +153,7 @@
             </HorizontalScrollView>
         </LinearLayout>
 
-        <!-- Sub Tabs (Video, Folder, Playlist, Sort) -->
+        <!-- Sub Tabs -->
         <LinearLayout
             android:id="@+id/tabLayout"
             android:layout_width="match_parent"
@@ -191,7 +203,7 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- MAIN MEDIA LIST -->
+    <!-- MEDIA RECYCLERVIEW -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
@@ -201,7 +213,7 @@
         android:clipToPadding="false"
         android:paddingBottom="8dp" />
 
-    <!-- EXACT PLAYIT ME SCREEN (Matches 1000044463.jpg) -->
+    <!-- PLAYIT ME SCREEN -->
     <ScrollView
         android:id="@+id/meLayout"
         android:layout_width="match_parent"
@@ -362,14 +374,13 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- 9-Icon Grid Layout (Exact PLAYit 3x3) -->
+            <!-- 9 Grid Icons -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:paddingHorizontal="12dp">
 
-                <!-- Row 1: Downloads, MP3 Converter, Privacy -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -411,7 +422,6 @@
                     </LinearLayout>
                 </LinearLayout>
 
-                <!-- Row 2: File Transfer, Media Manage, Theme -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -453,7 +463,6 @@
                     </LinearLayout>
                 </LinearLayout>
 
-                <!-- Row 3: History, 24h Gift, Clean -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -557,7 +566,7 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- SEARCH CONTAINER WITH RECENT SEARCH CHIPS ABOVE IT -->
+    <!-- SEARCH CONTAINER WITH STORIES / RECENT SEARCH CHIPS -->
     <LinearLayout
         android:id="@+id/bottomSearchContainer"
         android:layout_width="match_parent"
@@ -569,7 +578,6 @@
         android:paddingVertical="8dp"
         android:visibility="gone">
 
-        <!-- Recent Search History Chips -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -600,7 +608,6 @@
             </HorizontalScrollView>
         </LinearLayout>
 
-        <!-- Search Input -->
         <EditText
             android:id="@+id/etSearch"
             android:layout_width="match_parent"
@@ -614,7 +621,7 @@
             android:textSize="14sp" />
     </LinearLayout>
 
-    <!-- 4 TABS BOTTOM NAVIGATION BAR -->
+    <!-- 4 TABS BOTTOM NAVIGATION -->
     <LinearLayout
         android:id="@+id/customBottomBar"
         android:layout_width="match_parent"
