@@ -1,1 +1,1 @@
-Fix compilation error in PlayerActivity.kt by replacing unresolved reference isControllerVisible with isControllerFullyVisible() from AndroidX Media3 PlayerView.
+Updated PlayerActivity to fully integrate existing features while maintaining compliance with constraints.
