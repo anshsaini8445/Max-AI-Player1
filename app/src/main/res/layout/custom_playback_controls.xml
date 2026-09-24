@@ -85,7 +85,6 @@
             android:src="@android:drawable/ic_menu_sort_by_size"
             app:tint="#FFFFFF" />
 
-        <!-- Top Right Three-Dot Menu -->
         <ImageButton
             android:id="@+id/btnMoreSettings"
             android:layout_width="36dp"
@@ -95,7 +94,7 @@
             app:tint="#FFFFFF" />
     </LinearLayout>
 
-    <!-- LEFT CONTROLS: PURE WHITE WITH TRANSLUCENT GLASS CIRCLE -->
+    <!-- LEFT CONTROLS: PURE WHITE WITH GLASS CIRCLE -->
     <LinearLayout
         android:id="@+id/leftControlsLayout"
         android:layout_width="wrap_content"
@@ -141,7 +140,7 @@
         </androidx.cardview.widget.CardView>
     </LinearLayout>
 
-    <!-- RIGHT CONTROLS: PURE WHITE WITH TRANSLUCENT GLASS CIRCLE -->
+    <!-- RIGHT CONTROLS: PURE WHITE WITH GLASS CIRCLE -->
     <LinearLayout
         android:id="@+id/rightControlsLayout"
         android:layout_width="wrap_content"
@@ -218,7 +217,6 @@
         android:paddingTop="6dp"
         android:paddingBottom="12dp">
 
-        <!-- Time and Progress Bar -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -254,7 +252,6 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Control Buttons -->
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
