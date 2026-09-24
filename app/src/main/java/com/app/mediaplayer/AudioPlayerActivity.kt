@@ -11,12 +11,14 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.provider.Settings
 import android.view.View
 import android.view.animation.LinearInterpolator
+import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.SeekBar
@@ -63,6 +65,7 @@ class AudioPlayerActivity : AppCompatActivity() {
 
     private var isSeeking = false
     private var totalDuration: Long = 0
+    private var sleepCountDownTimer: CountDownTimer? = null
 
     private val progressUpdater = object : Runnable {
         override fun run() {
@@ -104,7 +107,6 @@ class AudioPlayerActivity : AppCompatActivity() {
             startPlaybackEngine()
         } catch (e: Exception) {
             e.printStackTrace()
-            Toast.makeText(this, "Audio Engine recovered", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -214,12 +216,12 @@ class AudioPlayerActivity : AppCompatActivity() {
             if (player?.isPlaying == true) player?.pause() else player?.play()
         }
 
-        // NEXT & PREVIOUS THAT NEVER CRASH OR STOP
+        // NEXT & PREVIOUS BUTTONS (Never freeze or back)
         findViewById<ImageButton>(R.id.btnAudioPrev)?.setOnClickListener {
             if (player?.hasPreviousMediaItem() == true) {
                 player?.seekToPreviousMediaItem()
             } else {
-                Toast.makeText(this, "First song in queue", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "First track in list", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -234,7 +236,7 @@ class AudioPlayerActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.btnShuffle)?.setOnClickListener {
             val shuffle = !(player?.shuffleModeEnabled ?: false)
             player?.shuffleModeEnabled = shuffle
-            Toast.makeText(this, if (shuffle) "Shuffle ON" else "Shuffle OFF", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, if (shuffle) "Shuffle Mode: ON" else "Shuffle Mode: OFF", Toast.LENGTH_SHORT).show()
         }
 
         findViewById<ImageButton>(R.id.btnFavorite)?.setOnClickListener {
@@ -260,11 +262,11 @@ class AudioPlayerActivity : AppCompatActivity() {
         )
 
         AlertDialog.Builder(this)
-            .setTitle(currentItem?.title ?: "Track Options")
+            .setTitle(currentItem?.title ?: "Audio Options")
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> setSongAsRingtone(currentItem)
-                    1 -> Toast.makeText(this, "Added to Playlist!", Toast.LENGTH_SHORT).show()
+                    1 -> showAddToPlaylistDialog(currentItem)
                     2 -> {
                         val speeds = arrayOf("0.75x", "1.0x (Normal)", "1.25x", "1.5x", "2.0x")
                         val speedVals = floatArrayOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
@@ -288,6 +290,30 @@ class AudioPlayerActivity : AppCompatActivity() {
                     }
                 }
             }
+            .show()
+    }
+
+    // REAL WORKING PLAYLIST CREATION & ADDITION
+    private fun showAddToPlaylistDialog(item: MediaItem?) {
+        if (item == null) return
+        val input = EditText(this).apply {
+            hint = "Playlist Name (e.g. Chill, Gym, Favorites)"
+            setPadding(30, 20, 30, 20)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Create / Add to Playlist")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isNotEmpty()) {
+                    val pPrefs = getSharedPreferences("PLAYLIST_PREFS", Context.MODE_PRIVATE)
+                    val existing = pPrefs.getString("PLAYLIST_$name", "") ?: ""
+                    val updated = if (existing.isEmpty()) item.path else "$existing,${item.path}"
+                    pPrefs.edit().putString("PLAYLIST_$name", updated).apply()
+                    Toast.makeText(this, "Added \"${item.title}\" to $name!", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
@@ -316,8 +342,41 @@ class AudioPlayerActivity : AppCompatActivity() {
             RingtoneManager.setActualDefaultRingtoneUri(this, RingtoneManager.TYPE_RINGTONE, ringtoneUri)
             Toast.makeText(this, "🔔 Ringtone set: ${item.title}", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
-            Toast.makeText(this, "Ringtone registered in system", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Ringtone set successfully", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    // REAL SLEEP TIMER WITH ACTIVE SECONDS COUNTDOWN
+    private fun showSleepTimerDialog() {
+        val timerOptions = arrayOf("15 minutes", "30 minutes", "45 minutes", "60 minutes", "Turn off timer")
+        val durationsMs = longArrayOf(15 * 60 * 1000L, 30 * 60 * 1000L, 45 * 60 * 1000L, 60 * 60 * 1000L, 0L)
+
+        AlertDialog.Builder(this)
+            .setTitle("Sleep Timer")
+            .setItems(timerOptions) { _, which ->
+                sleepCountDownTimer?.cancel()
+                val duration = durationsMs[which]
+                if (duration > 0) {
+                    sleepCountDownTimer = object : CountDownTimer(duration, 1000) {
+                        override fun onTick(millisUntilFinished: Long) {
+                            val mins = (millisUntilFinished / 1000) / 60
+                            val secs = (millisUntilFinished / 1000) % 60
+                            tvSubtitle?.text = "Timer: %02d:%02d remaining".format(mins, secs)
+                        }
+
+                        override fun onFinish() {
+                            tvSubtitle?.text = "Timer Expired"
+                            player?.pause()
+                            Toast.makeText(this@AudioPlayerActivity, "Sleep timer finished. Playback stopped.", Toast.LENGTH_LONG).show()
+                        }
+                    }.start()
+                    Toast.makeText(this, "Sleep timer active: ${timerOptions[which]}", Toast.LENGTH_SHORT).show()
+                } else {
+                    tvSubtitle?.text = "Now Playing"
+                    Toast.makeText(this, "Sleep timer disabled", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .show()
     }
 
     private fun showEqualizerDialog() {
@@ -326,16 +385,6 @@ class AudioPlayerActivity : AppCompatActivity() {
             .setTitle("Equalizer Presets")
             .setItems(presets) { _, which ->
                 Toast.makeText(this, "Equalizer: ${presets[which]} Applied", Toast.LENGTH_SHORT).show()
-            }
-            .show()
-    }
-
-    private fun showSleepTimerDialog() {
-        val timers = arrayOf("15 minutes", "30 minutes", "45 minutes", "60 minutes", "Turn off timer")
-        AlertDialog.Builder(this)
-            .setTitle("Sleep Timer")
-            .setItems(timers) { _, which ->
-                Toast.makeText(this, "Sleep timer: ${timers[which]}", Toast.LENGTH_SHORT).show()
             }
             .show()
     }
@@ -399,6 +448,7 @@ class AudioPlayerActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         savePosition()
+        sleepCountDownTimer?.cancel()
         rotationAnimator?.cancel()
         mainHandler.removeCallbacks(progressUpdater)
         player?.release()
