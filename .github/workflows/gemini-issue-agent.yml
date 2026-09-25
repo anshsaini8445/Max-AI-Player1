@@ -62,7 +62,7 @@ jobs:
 
           file_list_str = "\n".join(sorted(all_files)[:150])
 
-          prompt = f"""You are an elite autonomous Android engineer building 'MAX' media player using modern Media3/ExoPlayer (Android 14+, Target SDK 34).
+          prompt = f"""You are an elite autonomous Android engineer building 'MAX' media player using modern Media3/ExoPlayer.
           
           Repository structure:
           {file_list_str}
@@ -72,9 +72,9 @@ jobs:
           Details: {body}
 
           STRICT COMPILATION RULES:
-          1. Return fully compilable Kotlin/XML code. Do not omit code or use '...'.
+          1. Return fully compilable Kotlin/XML code. Do not omit code.
           2. Never reference UI IDs (R.id.*) that do not exist. Always use findViewById safely or build programmatic views.
-          3. Media3 PlayerView does not have 'isControllerVisible'. Use 'isControllerFullyVisible()' or showController()/hideController().
+          3. Escape all backslashes properly in regex to avoid JSON parsing errors.
           4. Output STRICT JSON only. Format:
           {{
             "summary": "Short explanation of implemented changes",
@@ -88,7 +88,8 @@ jobs:
           """
 
           client = genai.Client(api_key=api_key)
-          candidate_models = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
+          # Removed models throwing 503 errors and prioritized the stable 3.5-flash
+          candidate_models = ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.8-flash"]
           response = None
 
           for model_name in candidate_models:
@@ -112,11 +113,20 @@ jobs:
               sys.exit(1)
 
           raw_text = response.text.strip()
+          
+          # MAGIC FIX FOR JSONDecodeError: Invalid \escape
+          # This automatically double-escapes backslashes used in Kotlin regex so json.loads doesn't crash
+          raw_text = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', raw_text)
+
           try:
               data = json.loads(raw_text)
-          except Exception:
+          except Exception as e:
               match = re.search(r"\{[\s\S]*\}", raw_text)
-              data = json.loads(match.group(0)) if match else None
+              try:
+                  data = json.loads(match.group(0)) if match else None
+              except Exception as inner_e:
+                  print(f"FATAL: JSON Parsing failed after regex fix. Error: {inner_e}")
+                  sys.exit(1)
 
           if not data or not isinstance(data.get("files"), list):
               print("FATAL: Invalid JSON structure returned.")
