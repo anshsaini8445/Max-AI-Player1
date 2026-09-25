@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  code-agent:
+  code-and-build:
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -28,11 +28,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Dependencies
-        run: |
-          pip install --quiet google-generativeai
+      - name: Install Google Official GenAI SDK
+        run: pip install --quiet google-genai
 
-      - name: Run Gemini Code Agent
+      - name: Run Gemini Autonomous Agent
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
@@ -40,173 +39,116 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           python - << 'EOF'
-          import os
-          import sys
-          import json
-          import re
+          import os, sys, json, re
           from pathlib import Path
-          import google.generativeai as genai
+          from google import genai
+          from google.genai import types
 
-          API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-          ISSUE_TITLE = os.environ.get("ISSUE_TITLE", "").strip()
-          ISSUE_BODY = os.environ.get("ISSUE_BODY", "").strip()
-          ISSUE_NO = os.environ.get("ISSUE_NUMBER", "")
+          api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+          title = os.environ.get("ISSUE_TITLE", "").strip()
+          body = os.environ.get("ISSUE_BODY", "") or ""
+          issue_no = os.environ.get("ISSUE_NUMBER", "")
 
-          if not API_KEY:
-              print("❌ GEMINI_API_KEY missing!")
+          if not api_key:
+              print("FATAL: GEMINI_API_KEY secret missing!")
               sys.exit(1)
 
-          genai.configure(api_key=API_KEY)
-
-          print("📁 Scanning project...")
           all_files = []
           for root, dirs, files in os.walk("."):
               dirs[:] = [d for d in dirs if d not in {".git", "build", ".gradle", "node_modules", ".idea", ".github"}]
               for f in files:
-                  if f.endswith((".kt", ".java", ".xml", ".gradle", ".kts", ".properties", ".json")):
-                      rel_path = os.path.relpath(os.path.join(root, f), ".")
-                      all_files.append(rel_path)
+                  if f.endswith((".kt", ".java", ".xml", ".gradle", ".kts", ".properties")):
+                      all_files.append(os.path.relpath(os.path.join(root, f), "."))
 
-          print(f"✅ Found {len(all_files)} relevant files")
+          file_list_str = "\n".join(sorted(all_files)[:150])
 
-          context_files = {}
-          target_files = [
-              "app/src/main/java/com/app/mediaplayer/PlayerActivity.kt",
-              "app/src/main/res/layout/activity_player.xml",
-              "app/build.gradle.kts",
-              "app/src/main/AndroidManifest.xml"
-          ]
+          prompt = f"""You are an elite autonomous Android engineer building 'MAX' media player using modern Media3/ExoPlayer (Android 14+, Target SDK 34).
+          
+          Repository structure:
+          {file_list_str}
 
-          for tf in target_files:
-              if os.path.exists(tf):
-                  try:
-                      with open(tf, "r", encoding="utf-8") as f:
-                          context_files[tf] = f.read()
-                  except Exception as e:
-                      print(f"⚠️ Could not read {tf}: {e}")
+          Task from Issue #{issue_no}:
+          Title: {title}
+          Details: {body}
 
-          context_block = "\n\n".join([f"### {fname}\n```\n{content[:2000]}\n```" 
-                                       for fname, content in context_files.items()])
+          STRICT COMPILATION RULES:
+          1. Return fully compilable Kotlin/XML code. Do not omit code or use '...'.
+          2. Never reference UI IDs (R.id.*) that do not exist. Always use findViewById safely or build programmatic views.
+          3. Media3 PlayerView does not have 'isControllerVisible'. Use 'isControllerFullyVisible()' or showController()/hideController().
+          4. Output STRICT JSON only. Format:
+          {{
+            "summary": "Short explanation of implemented changes",
+            "files": [
+              {{
+                "filepath": "relative/path/to/File.kt",
+                "content": "FULL_CODE_HERE"
+              }}
+            ]
+          }}
+          """
 
-          prompt = f"""You are an expert Android Kotlin developer for MAX media player.
-
-**PROJECT CONTEXT:**
-{context_block}
-
-**AVAILABLE PROJECT FILES:**
-{json.dumps(all_files[:20], indent=2)}
-
-**ISSUE TO RESOLVE:**
-- Issue #{ISSUE_NO}
-- Title: {ISSUE_TITLE}
-- Description: {ISSUE_BODY}
-
-**CRITICAL REQUIREMENTS:**
-1. Only modify files that already exist in the project
-2. Never invent R.id elements - check layout files first
-3. Keep all existing working code intact
-4. Return COMPLETE file content, not snippets
-5. Only use public/stable Android APIs
-6. Add proper error handling and logging
-7. Follow Kotlin best practices
-
-**RESPONSE FORMAT (VALID JSON ONLY):**
-{{
-  "analysis": "Quick analysis of the issue",
-  "changes": "What you're fixing",
-  "files": [
-    {{
-      "filepath": "exact/file/path.kt",
-      "action": "create or update",
-      "content": "FULL FILE CONTENT HERE"
-    }}
-  ],
-  "build_instructions": "Any special gradle/build notes"
-}}"""
-
-          print(f"\n🤖 Calling Gemini (Issue #{ISSUE_NO})...")
-
-          # gemini-3.5-flash = current GA/stable model (May 2026 onward)
-          # gemini-2.5-flash / gemini-2.5-pro = older but still-served fallbacks
-          # gemini-2.0-flash removed entirely — shut down March 31, 2026
-          models = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-pro"]
+          client = genai.Client(api_key=api_key)
+          candidate_models = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
           response = None
 
-          for model in models:
+          for model_name in candidate_models:
               try:
-                  print(f"   Trying {model}...")
-                  response = genai.GenerativeModel(model).generate_content(
-                      prompt,
-                      generation_config=genai.types.GenerationConfig(
-                          temperature=0.1,
-                          top_p=0.95,
-                          response_mime_type="application/json"
+                  print(f"Connecting to: {model_name}...")
+                  response = client.models.generate_content(
+                      model=model_name,
+                      contents=prompt,
+                      config=types.GenerateContentConfig(
+                          response_mime_type="application/json",
+                          temperature=0.1
                       )
                   )
-                  print(f"   ✅ Success with {model}")
+                  print(f"Success with model: {model_name}")
                   break
-              except Exception as e:
-                  print(f"   ⚠️ {model} failed: {str(e)[:120]}")
+              except Exception as err:
+                  print(f"Model {model_name} skipped: {err}")
 
-          if not response:
-              print("❌ All models failed! Check API key validity / quota / region access.")
+          if not response or not getattr(response, "text", None):
+              print("FATAL: Gemini failed to respond.")
               sys.exit(1)
 
           raw_text = response.text.strip()
-
           try:
               data = json.loads(raw_text)
-          except json.JSONDecodeError:
+          except Exception:
               match = re.search(r"\{[\s\S]*\}", raw_text)
-              if not match:
-                  print(f"❌ Invalid JSON from Gemini:\n{raw_text[:500]}")
-                  sys.exit(1)
-              try:
-                  data = json.loads(match.group(0))
-              except Exception:
-                  print("❌ Could not parse extracted JSON")
-                  sys.exit(1)
+              data = json.loads(match.group(0)) if match else None
+
+          if not data or not isinstance(data.get("files"), list):
+              print("FATAL: Invalid JSON structure returned.")
+              sys.exit(1)
 
           updated_files = []
-          for item in data.get("files", []):
-              filepath = item.get("filepath", "").strip().replace("\\", "/")
-              if filepath.startswith("./"):
-                  filepath = filepath[2:]
+          for item in data["files"]:
+              fp = item.get("filepath", "").strip().replace("\\", "/")
+              if fp.startswith("./"): fp = fp[2:]
+              if ".." in fp or fp.startswith("/"): continue
 
-              if ".." in filepath or filepath.startswith("/"):
-                  print(f"⚠️ Skipped unsafe path: {filepath}")
-                  continue
-
-              Path(filepath).parent.mkdir(parents=True, exist_ok=True)
-              with open(filepath, "w", encoding="utf-8") as f:
+              Path(fp).parent.mkdir(parents=True, exist_ok=True)
+              with open(fp, "w", encoding="utf-8") as f:
                   f.write(item.get("content", ""))
-              updated_files.append(filepath)
-              print(f"✏️  Updated: {filepath}")
+              updated_files.append(fp)
+              print(f"Auto-written: {fp}")
 
-          if not updated_files:
-              print("⚠️ No files were generated")
-
-          summary = data.get("analysis", "Issue #" + ISSUE_NO)
-          with open("agent_summary.txt", "w") as f:
-              f.write(f"Issue #{ISSUE_NO}: {summary}\n\n")
-              f.write(f"Modified files: {', '.join(updated_files)}\n")
-              f.write(f"\nBuild notes:\n{data.get('build_instructions', 'None')}")
-
-          print(f"\n✅ Agent completed. Updated {len(updated_files)} file(s)")
+          with open("agent_summary.txt", "w", encoding="utf-8") as f:
+              f.write(data.get("summary", "Automated code update"))
           EOF
 
-      - name: Commit Changes
+      - name: Commit and Push to Main
         run: |
           git config --global user.name "gemini-agent[bot]"
-          git config --global user.email "gemini-agent@ansh-apps.dev"
+          git config --global user.email "gemini-agent@google.com"
           git add -A
-          if ! git diff --staged --quiet; then
-            SUMMARY=$(head -1 agent_summary.txt 2>/dev/null || echo "Auto-fix Issue #${{ github.event.issue.number }}")
-            git commit -m "🤖 $SUMMARY"
-            git push origin HEAD:main
-            echo "PUSH_SUCCESS=true" >> $GITHUB_ENV
+          if git diff --staged --quiet; then
+            echo "No file changes detected."
           else
-            echo "PUSH_SUCCESS=false" >> $GITHUB_ENV
+            SUMMARY=$(cat agent_summary.txt 2>/dev/null || echo "Automated feature implementation")
+            git commit -m "feat(agent): Auto-implement Issue #${{ github.event.issue.number }} - $SUMMARY"
+            git push origin HEAD:main
           fi
 
       - name: Set up JDK 17
@@ -216,16 +158,25 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Build Android APK
+      - name: Auto-Locate Gradlew and Build APK
         run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon -x test
+          GRADLEW_FILE=$(find . -name "gradlew" -type f | head -n 1)
+          if [ -n "$GRADLEW_FILE" ]; then
+            echo "Found gradlew at: $GRADLEW_FILE"
+            chmod +x "$GRADLEW_FILE"
+            PROJECT_DIR=$(dirname "$GRADLEW_FILE")
+            cd "$PROJECT_DIR"
+            ./gradlew assembleDebug --no-daemon -x test
+          else
+            echo "FATAL: gradlew file not found in repository!"
+            exit 1
+          fi
 
-      - name: Upload APK
+      - name: Upload Built APK to Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: MAX-Player-APK
-          path: app/build/outputs/apk/debug/*.apk
+          path: "**/build/outputs/apk/debug/*.apk"
           retention-days: 7
 
       - name: Comment on Issue
@@ -233,25 +184,10 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            const summary = fs.existsSync('agent_summary.txt') 
-              ? fs.readFileSync('agent_summary.txt', 'utf8') 
-              : 'Build completed';
             const status = '${{ job.status }}';
-            const pushSuccess = '${{ env.PUSH_SUCCESS }}' === 'true';
-
-            let body = '';
-            if (status === 'success' && pushSuccess) {
-              body = '✅ **Issue Resolved!**\n\n' +
-                     '```\n' + summary + '\n```\n\n' +
-                     '📦 APK artifact ready in Actions → Artifacts\n' +
-                     '🚀 Changes pushed to main branch';
-            } else if (pushSuccess) {
-              body = '⚠️ **Code generated but build failed**\n\nCheck Actions logs for compiler errors';
-            } else {
-              body = '❌ **Agent failed**\n\nSee workflow logs for details';
-            }
-
+            const body = status === 'success'
+              ? '✅ **Success!** Gemini Agent has implemented the requested code, verified compilation, and generated your new APK. Download **MAX-Player-APK** directly from the Artifacts section above.'
+              : '❌ **Build Failed.** Please inspect the compiler output in the Actions run tab.';
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
