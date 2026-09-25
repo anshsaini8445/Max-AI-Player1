@@ -125,11 +125,10 @@ jobs:
 
           client = genai.Client(api_key=api_key)
           
-          # DEEP RESEARCH FIX (Sept 2026): Exact working text models, no weak "lite" models.
+          # APKE BATAYE HUE EXACT 2026 KE PREMIUM MODELS
           best_models = [
-              "gemini-3.5-flash",
               "gemini-3.8-flash", 
-              "gemini-pro-latest"
+              "gemini-3.1-pro"
           ]
 
           all_files = []
@@ -177,7 +176,7 @@ jobs:
                           error_str = str(e)
                           print(f"   ✗ {model_name} Failed: {error_str}")
                           if "429" in error_str or "503" in error_str:
-                              print("   ⏳ Rate limit reached. Waiting 15 seconds to let quota recover...")
+                              print("   ⏳ Server load/quota limit. Waiting 15 seconds...")
                               time.sleep(15)
                   if response:
                       break
