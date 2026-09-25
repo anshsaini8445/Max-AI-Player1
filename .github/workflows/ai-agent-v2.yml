@@ -118,9 +118,10 @@ jobs:
               print(f"\n--- AI ATTEMPT {attempt} ---")
               response = None
               
-              for model_name in ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.8-flash"]:
+              # Automatically uses the absolute latest models available in late 2026
+              for model_name in ["gemini-flash", "gemini-pro"]:
                   try:
-                      print(f"Connecting to {model_name}...")
+                      print(f"Connecting to latest available model ({model_name})...")
                       response = client.models.generate_content(
                           model=model_name,
                           contents=current_prompt,
@@ -128,10 +129,10 @@ jobs:
                       )
                       break
                   except Exception as e:
-                      print(f"Model {model_name} busy: {e}")
+                      print(f"Model {model_name} busy or not found: {e}")
               
               if not response:
-                  print("FATAL: AI servers down.")
+                  print("FATAL: AI servers down or models unavailable.")
                   sys.exit(1)
 
               raw_text = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', response.text.strip())
