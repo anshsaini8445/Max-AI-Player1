@@ -33,40 +33,20 @@ jobs:
       - name: Initialize Android Project
         run: |
           echo "Setting up basic Android project structure..."
-          # Creating basic directories
           mkdir -p app/src/main/java/com/app/mediaplayer
           mkdir -p app/src/main/res/layout
-          mkdir -p app/src/main/res/values
-          mkdir -p app/src/main/res/mipmap-mdpi
           
-          # Generating basic files if they don't exist
           if [ ! -f "settings.gradle" ]; then
             echo "rootProject.name = 'MaxAIPlayer'" > settings.gradle
             echo "include ':app'" >> settings.gradle
           fi
 
           if [ ! -f "app/build.gradle" ]; then
-            cat << 'EOF' > app/build.gradle
-            plugins {
-                id 'com.android.application'
-                id 'org.jetbrains.kotlin.android'
-            }
-            android {
-                namespace 'com.app.mediaplayer'
-                compileSdk 34
-                defaultConfig {
-                    applicationId "com.app.mediaplayer"
-                    minSdk 24
-                    targetSdk 34
-                    versionCode 1
-                    versionName "1.0"
-                }
-            }
-            EOF
+            echo "plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }" > app/build.gradle
+            echo "android { namespace 'com.app.mediaplayer'; compileSdk 34; defaultConfig { applicationId 'com.app.mediaplayer'; minSdk 24; targetSdk 34; versionCode 1; versionName '1.0' } }" >> app/build.gradle
           fi
 
           if [ ! -f "gradlew" ]; then
-            echo "Generating Gradle Wrapper..."
             gradle wrapper --gradle-version 8.4
           fi
           
