@@ -30,6 +30,16 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
+      - name: Auto-Generate Gradle Wrapper
+        run: |
+          if [ ! -f "gradlew" ]; then
+            echo "gradlew not found. Generating automatically..."
+            gradle wrapper --gradle-version 8.4
+          fi
+          chmod +x gradlew
+          echo "GRADLEW_PATH=./gradlew" >> $GITHUB_ENV
+          echo "PROJECT_DIR=." >> $GITHUB_ENV
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -37,18 +47,6 @@ jobs:
 
       - name: Install AI SDK
         run: pip install --quiet google-genai
-
-      - name: Locate Gradlew
-        run: |
-          GRADLEW_FILE=$(find . -name "gradlew" -type f | head -n 1)
-          if [ -n "$GRADLEW_FILE" ]; then
-            chmod +x "$GRADLEW_FILE"
-            echo "GRADLEW_PATH=$GRADLEW_FILE" >> $GITHUB_ENV
-            echo "PROJECT_DIR=$(dirname "$GRADLEW_FILE")" >> $GITHUB_ENV
-          else
-            echo "FATAL: Android base project missing! Please upload gradlew first."
-            exit 1
-          fi
 
       - name: Run Self-Healing AI
         env:
@@ -102,7 +100,6 @@ jobs:
           current_prompt = base_prompt
           build_success = False
 
-          # AI will try up to 3 times to get a successful build
           for attempt in range(1, 4):
               print(f"\n--- AI ATTEMPT {attempt} ---")
               response = None
@@ -120,7 +117,7 @@ jobs:
                       print(f"Model {model_name} busy: {e}")
               
               if not response:
-                  print("FATAL: Google AI servers are down.")
+                  print("FATAL: AI servers down.")
                   sys.exit(1)
 
               raw_text = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', response.text.strip())
@@ -132,7 +129,7 @@ jobs:
                   data = json.loads(match.group(0)) if match else None
 
               if not data:
-                  print("FATAL: AI returned invalid JSON.")
+                  print("FATAL: Invalid JSON.")
                   sys.exit(1)
 
               for item in data.get("files", []):
@@ -147,29 +144,28 @@ jobs:
               with open("agent_summary.txt", "w", encoding="utf-8") as f:
                   f.write(data.get("summary", f"AI Fix attempt {attempt}"))
 
-              # Self-Healing Build Test
-              print("\nCompiling App in background...")
+              print("\nCompiling App...")
               build_process = subprocess.run(
                   [gradlew_path, "assembleDebug", "--no-daemon", "-x", "test"], 
                   cwd=project_dir, capture_output=True, text=True
               )
               
               if build_process.returncode == 0:
-                  print("✅ BUILD SUCCESSFUL! AI code is perfect.")
+                  print("✅ BUILD SUCCESSFUL!")
                   build_success = True
                   break
               else:
-                  print("❌ BUILD FAILED. AI is analyzing the error to self-heal...")
+                  print("❌ BUILD FAILED. Self-healing...")
                   error_log = build_process.stderr + build_process.stdout
                   short_error = error_log[-2000:]
-                  current_prompt = base_prompt + f"\n\nCRITICAL FIX NEEDED: Your code failed to compile. Error log:\n```\n{short_error}\n```\nFind the error and give the corrected FULL JSON code again."
+                  current_prompt = base_prompt + f"\n\nCRITICAL FIX NEEDED: Compilation failed. Error log:\n```\n{short_error}\n```\nProvide corrected FULL JSON."
 
           if not build_success:
-              print("FATAL: AI could not fix the errors after 3 tries.")
+              print("FATAL: Self-healing failed.")
               sys.exit(1)
           EOF
 
-      - name: Save AI Code to Main Branch
+      - name: Save Code to Main Branch
         run: |
           git config --global user.name "AI-Agent[bot]"
           git config --global user.email "ai-agent@google.com"
@@ -182,22 +178,22 @@ jobs:
             git push origin HEAD:main
           fi
 
-      - name: Give you the APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: AutoDroid-APK
           path: "**/build/outputs/apk/debug/*.apk"
           retention-days: 7
 
-      - name: Reply to your Issue
+      - name: Comment on Issue
         if: always()
         uses: actions/github-script@v7
         with:
           script: |
             const status = '${{ job.status }}';
             const body = status === 'success'
-              ? '✅ **Done!** AI Agent ne code likha, khud errors check kiye, aur build pass kara diya. Upar Artifacts section se apna APK download kar lo!'
-              : '❌ **Failed.** AI ne theek karne ki koshish ki par errors zyada the. Action logs check karo.';
+              ? '✅ **Done!** AI Agent successfully generated and built the APK. Download it from Artifacts.'
+              : '❌ **Failed.** AI tried self-healing but failed. Check action logs.';
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
