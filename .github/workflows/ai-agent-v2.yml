@@ -118,21 +118,23 @@ jobs:
               print(f"\n--- AI ATTEMPT {attempt} ---")
               response = None
               
-              # Automatically uses the absolute latest models available in late 2026
-              for model_name in ["gemini-flash", "gemini-pro"]:
+              # DEEP RESEARCH FIX: Using exact verified stable endpoints from Google API
+              for model_name in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]:
                   try:
-                      print(f"Connecting to latest available model ({model_name})...")
+                      print(f"Connecting to verified model: {model_name}...")
                       response = client.models.generate_content(
                           model=model_name,
                           contents=current_prompt,
                           config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.1)
                       )
-                      break
+                      if response:
+                          print(f"Successfully connected to {model_name}!")
+                          break
                   except Exception as e:
-                      print(f"Model {model_name} busy or not found: {e}")
+                      print(f"Model {model_name} failed: {e}")
               
               if not response:
-                  print("FATAL: AI servers down or models unavailable.")
+                  print("FATAL: All AI models failed. Please check your API status.")
                   sys.exit(1)
 
               raw_text = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', response.text.strip())
@@ -144,7 +146,7 @@ jobs:
                   data = json.loads(match.group(0)) if match else None
 
               if not data:
-                  print("FATAL: Invalid JSON.")
+                  print("FATAL: AI returned invalid JSON.")
                   sys.exit(1)
 
               for item in data.get("files", []):
