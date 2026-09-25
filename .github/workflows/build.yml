@@ -1,32 +1,206 @@
-name: Build Android APK
+name: Ultimate Self-Healing AI Agent
 
 on:
-  push:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
+  issues:
+    types: [opened, reopened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: ai-agent-${{ github.event.issue.number }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  auto-coder-and-healer:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
           java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
 
-      - name: Generate Gradle Wrapper
-        run: gradle wrapper --gradle-version 8.2
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Install AI SDK
+        run: pip install --quiet google-genai
 
-      - name: Upload Debug APK
+      - name: Locate Gradlew
+        run: |
+          GRADLEW_FILE=$(find . -name "gradlew" -type f | head -n 1)
+          if [ -n "$GRADLEW_FILE" ]; then
+            chmod +x "$GRADLEW_FILE"
+            echo "GRADLEW_PATH=$GRADLEW_FILE" >> $GITHUB_ENV
+            echo "PROJECT_DIR=$(dirname "$GRADLEW_FILE")" >> $GITHUB_ENV
+          else
+            echo "FATAL: Android base project missing! Please upload gradlew first."
+            exit 1
+          fi
+
+      - name: Run Self-Healing AI
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          python - << 'EOF'
+          import os, sys, json, re, subprocess
+          from pathlib import Path
+          from google import genai
+          from google.genai import types
+
+          api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+          title = os.environ.get("ISSUE_TITLE", "").strip()
+          body = os.environ.get("ISSUE_BODY", "") or ""
+          issue_no = os.environ.get("ISSUE_NUMBER", "")
+          project_dir = os.environ.get("PROJECT_DIR", ".")
+          gradlew_path = os.environ.get("GRADLEW_PATH", "./gradlew")
+
+          if not api_key:
+              print("FATAL: GEMINI_API_KEY missing!")
+              sys.exit(1)
+
+          client = genai.Client(api_key=api_key)
+
+          all_files = []
+          for root, dirs, files in os.walk("."):
+              dirs[:] = [d for d in dirs if d not in {".git", "build", ".gradle", "node_modules", ".idea", ".github"}]
+              for f in files:
+                  if f.endswith((".kt", ".java", ".xml", ".gradle", ".kts", ".properties")):
+                      all_files.append(os.path.relpath(os.path.join(root, f), "."))
+
+          file_list_str = "\n".join(sorted(all_files)[:150])
+
+          base_prompt = f"""You are an elite autonomous Android engineer.
+          Project Files:
+          {file_list_str}
+
+          Issue #{issue_no}: {title}
+          Details: {body}
+
+          RULES:
+          1. Return fully compilable Kotlin/XML. Do not use UI IDs that don't exist.
+          2. Escape backslashes in regex (use \\\\).
+          3. STRICT JSON format only:
+          {{"summary": "Short info", "files": [{{"filepath": "path/to/File.kt", "content": "FULL_CODE"}}]}}
+          """
+
+          current_prompt = base_prompt
+          build_success = False
+
+          # AI will try up to 3 times to get a successful build
+          for attempt in range(1, 4):
+              print(f"\n--- AI ATTEMPT {attempt} ---")
+              response = None
+              
+              for model_name in ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.8-flash"]:
+                  try:
+                      print(f"Connecting to {model_name}...")
+                      response = client.models.generate_content(
+                          model=model_name,
+                          contents=current_prompt,
+                          config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.1)
+                      )
+                      break
+                  except Exception as e:
+                      print(f"Model {model_name} busy: {e}")
+              
+              if not response:
+                  print("FATAL: Google AI servers are down.")
+                  sys.exit(1)
+
+              raw_text = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', response.text.strip())
+              
+              try:
+                  data = json.loads(raw_text)
+              except:
+                  match = re.search(r"\{[\s\S]*\}", raw_text)
+                  data = json.loads(match.group(0)) if match else None
+
+              if not data:
+                  print("FATAL: AI returned invalid JSON.")
+                  sys.exit(1)
+
+              for item in data.get("files", []):
+                  fp = item.get("filepath", "").strip().replace("\\", "/")
+                  if fp.startswith("./"): fp = fp[2:]
+                  if ".." in fp or fp.startswith("/"): continue
+                  Path(fp).parent.mkdir(parents=True, exist_ok=True)
+                  with open(fp, "w", encoding="utf-8") as f:
+                      f.write(item.get("content", ""))
+                  print(f"Auto-wrote: {fp}")
+
+              with open("agent_summary.txt", "w", encoding="utf-8") as f:
+                  f.write(data.get("summary", f"AI Fix attempt {attempt}"))
+
+              # Self-Healing Build Test
+              print("\nCompiling App in background...")
+              build_process = subprocess.run(
+                  [gradlew_path, "assembleDebug", "--no-daemon", "-x", "test"], 
+                  cwd=project_dir, capture_output=True, text=True
+              )
+              
+              if build_process.returncode == 0:
+                  print("✅ BUILD SUCCESSFUL! AI code is perfect.")
+                  build_success = True
+                  break
+              else:
+                  print("❌ BUILD FAILED. AI is analyzing the error to self-heal...")
+                  error_log = build_process.stderr + build_process.stdout
+                  short_error = error_log[-2000:]
+                  current_prompt = base_prompt + f"\n\nCRITICAL FIX NEEDED: Your code failed to compile. Error log:\n```\n{short_error}\n```\nFind the error and give the corrected FULL JSON code again."
+
+          if not build_success:
+              print("FATAL: AI could not fix the errors after 3 tries.")
+              sys.exit(1)
+          EOF
+
+      - name: Save AI Code to Main Branch
+        run: |
+          git config --global user.name "AI-Agent[bot]"
+          git config --global user.email "ai-agent@google.com"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes."
+          else
+            SUMMARY=$(cat agent_summary.txt 2>/dev/null || echo "AI Magic")
+            git commit -m "Auto-Fix: Issue #${{ github.event.issue.number }} - $SUMMARY"
+            git push origin HEAD:main
+          fi
+
+      - name: Give you the APK
         uses: actions/upload-artifact@v4
         with:
-          name: MediaPlayer-App
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: AutoDroid-APK
+          path: "**/build/outputs/apk/debug/*.apk"
+          retention-days: 7
+
+      - name: Reply to your Issue
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}';
+            const body = status === 'success'
+              ? '✅ **Done!** AI Agent ne code likha, khud errors check kiye, aur build pass kara diya. Upar Artifacts section se apna APK download kar lo!'
+              : '❌ **Failed.** AI ne theek karne ki koshish ki par errors zyada the. Action logs check karo.';
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
