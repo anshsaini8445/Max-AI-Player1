@@ -1,4 +1,4 @@
-name: Ultimate Self-Healing AI Agent V4
+name: Ultimate MaxPlayer AI V5
 
 on:
   issues:
@@ -13,38 +13,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  auto-coder-and-healer:
+  auto-coder:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
           cache: gradle
 
-      - name: Prepare Base Android Project
+      - name: 2026 Latest Android Base Setup
         run: |
           echo "Setting up perfect Android base project..."
           mkdir -p app/src/main/java/com/app/mediaplayer
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/values
-          mkdir -p app/src/main/res/menu
           
-          # FIX: Gradle wrapper sabse pehle run hoga taaki bina file ke crash na ho
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper --gradle-version 8.4
-          fi
-          chmod +x gradlew
-          
-          # Ab files banengi Google server ke raste ke sath
+          # LATEST 2026 GRADLE RULES: Google must be in pluginManagement
           cat << 'EOF' > settings.gradle
           pluginManagement {
               repositories {
@@ -60,7 +53,7 @@ jobs:
                   mavenCentral()
               }
           }
-          rootProject.name = 'Max Player'
+          rootProject.name = 'MaxPlayer'
           include ':app'
           EOF
           
@@ -87,10 +80,10 @@ jobs:
                   versionName "1.0"
               }
               compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_1_8
-                  targetCompatibility JavaVersion.VERSION_1_8
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
               }
-              kotlinOptions { jvmTarget = '1.8' }
+              kotlinOptions { jvmTarget = '17' }
           }
           dependencies {
               implementation 'androidx.core:core-ktx:1.12.0'
@@ -114,25 +107,26 @@ jobs:
           </manifest>
           EOF
           
-          echo "GRADLEW_PATH=./gradlew" >> $GITHUB_ENV
-          echo "PROJECT_DIR=." >> $GITHUB_ENV
+          # Setup Latest Gradle Wrapper
+          gradle wrapper --gradle-version 8.7
+          chmod +x gradlew
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install OpenAI SDK
+      - name: Install Secure Packages
         run: pip install --quiet openai httpx
 
-      - name: Run DeepSeek AI via NVIDIA NIM
+      - name: Run DeepSeek AI
         env:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          python - << 'EOF'
+          cat << 'PYEOF' > run_ai.py
           import os, sys, json, re, subprocess, time
           from pathlib import Path
           from openai import OpenAI
@@ -142,21 +136,17 @@ jobs:
           title = os.environ.get("ISSUE_TITLE", "").strip()
           body = os.environ.get("ISSUE_BODY", "") or ""
           issue_no = os.environ.get("ISSUE_NUMBER", "")
-          project_dir = os.environ.get("PROJECT_DIR", ".")
-          gradlew_path = os.environ.get("GRADLEW_PATH", "./gradlew")
 
           if not api_key:
               print("FATAL: NVIDIA_API_KEY missing!")
               sys.exit(1)
 
-          http_client = httpx.Client(timeout=180.0)
-          
           client = OpenAI(
-              base_url = "https://integrate.api.nvidia.com/v1",
-              api_key = api_key,
-              http_client=http_client
+              base_url="https://integrate.api.nvidia.com/v1",
+              api_key=api_key,
+              http_client=httpx.Client(timeout=180.0)
           )
-          
+
           model_name = "deepseek-ai/deepseek-v4.1-flash"
 
           all_files = []
@@ -176,21 +166,20 @@ jobs:
           Details: {body}
 
           RULES:
-          1. Return fully compilable Kotlin/XML. Do not use UI IDs that don't exist.
-          2. STRICT JSON format only:
-          {{"summary": "Short info", "files": [{{"filepath": "path/to/File.kt", "content": "FULL_CODE"}}]}}
+          1. Return fully compilable Kotlin/XML.
+          2. STRICT JSON format only: {{"summary": "info", "files": [{{"filepath": "path/file.kt", "content": "CODE"}}]}}
           """
 
           current_prompt = base_prompt
           build_success = False
 
           for attempt in range(1, 4):
-              print(f"\n══════════ AI ATTEMPT {attempt} ══════════")
+              print(f"\n--- AI ATTEMPT {attempt} ---")
               response_text = None
               
               for retry in range(2): 
                   try:
-                      print(f"→ Connecting safely to {model_name}...")
+                      print(f"Connecting to {model_name}...")
                       completion = client.chat.completions.create(
                           model=model_name,
                           messages=[{"role": "user", "content": current_prompt}],
@@ -198,16 +187,15 @@ jobs:
                       )
                       if completion and completion.choices:
                           response_text = completion.choices[0].message.content
-                          print(f"✅ {model_name} responded successfully!")
+                          print("✅ AI Responded!")
                           break
                   except Exception as e:
-                      error_str = str(e)
-                      print(f"   ✗ Connection Failed: {error_str}")
-                      print("   ⏳ Retrying in 10 seconds...")
+                      print(f"✗ Connection Failed: {e}")
+                      print("Retrying in 10s...")
                       time.sleep(10)
               
               if not response_text:
-                  print("FATAL: AI model exhausted API quota or server is not responding.")
+                  print("FATAL: AI server down or quota exhausted.")
                   sys.exit(1)
 
               raw_text = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', response_text.strip())
@@ -233,8 +221,8 @@ jobs:
 
               print("\n🔨 Compiling (assembleDebug)...")
               build_process = subprocess.run(
-                  [gradlew_path, "assembleDebug", "--no-daemon", "-x", "test"], 
-                  cwd=project_dir, capture_output=True, text=True
+                  ["./gradlew", "assembleDebug", "--no-daemon", "-x", "test"], 
+                  capture_output=True, text=True
               )
               
               if build_process.returncode == 0:
@@ -248,9 +236,11 @@ jobs:
                   current_prompt = base_prompt + f"\n\nCRITICAL FIX NEEDED: Compilation failed. Error log:\n```\n{short_error}\n```\nProvide corrected FULL JSON."
 
           if not build_success:
-              print("❌ FATAL: Self-healing failed after 3 attempts.")
+              print("❌ FATAL: Self-healing failed.")
               sys.exit(1)
-          EOF
+          PYEOF
+          
+          python run_ai.py
 
       - name: Save Code to Main Branch
         run: |
@@ -260,7 +250,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes."
           else
-            SUMMARY=$(cat agent_summary.txt 2>/dev/null || echo "AI Magic")
+            SUMMARY=$(cat agent_summary.txt 2>/dev/null || echo "AI Magic Update")
             git commit -m "Auto-Fix: Issue #${{ github.event.issue.number }} - $SUMMARY"
             git push origin HEAD:main
           fi
@@ -269,7 +259,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MaxPlayer-APK
-          path: "**/build/outputs/apk/debug/*.apk"
+          path: app/build/outputs/apk/debug/*.apk
           retention-days: 7
 
       - name: Comment on Issue
