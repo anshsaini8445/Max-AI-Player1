@@ -15,7 +15,7 @@ concurrency:
 jobs:
   auto-coder-and-healer:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Checkout Repository
@@ -38,35 +38,9 @@ jobs:
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/menu
           
-          # 1. NEW 2026 STANDARD: Settings.gradle with Google Repositories
-          cat << 'EOF' > settings.gradle
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          rootProject.name = 'Max Player'
-          include ':app'
-          EOF
+          echo "rootProject.name = 'Max Player'" > settings.gradle
+          echo "include ':app'" >> settings.gradle
           
-          # 2. ROOT Build.gradle (Defining plugin versions for Gradle 8+)
-          cat << 'EOF' > build.gradle
-          plugins {
-              id 'com.android.application' version '8.2.2' apply false
-              id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
-          }
-          EOF
-          
-          # 3. APP Build.gradle (Java 17 support added)
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -83,10 +57,10 @@ jobs:
                   versionName "1.0"
               }
               compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
               }
-              kotlinOptions { jvmTarget = '17' }
+              kotlinOptions { jvmTarget = '1.8' }
           }
           dependencies {
               implementation 'androidx.core:core-ktx:1.12.0'
@@ -96,7 +70,6 @@ jobs:
           }
           EOF
           
-          # 4. ANDROID MANIFEST
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.app.mediaplayer">
@@ -111,7 +84,6 @@ jobs:
           </manifest>
           EOF
           
-          # 5. GRADLE WRAPPER
           if [ ! -f "gradlew" ]; then
             gradle wrapper --gradle-version 8.4
           fi
@@ -125,7 +97,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install OpenAI SDK
-        run: pip install --quiet openai
+        run: pip install --quiet openai httpx
 
       - name: Run DeepSeek AI via NVIDIA NIM
         env:
@@ -138,6 +110,7 @@ jobs:
           import os, sys, json, re, subprocess, time
           from pathlib import Path
           from openai import OpenAI
+          import httpx
 
           api_key = os.environ.get("NVIDIA_API_KEY", "").strip()
           title = os.environ.get("ISSUE_TITLE", "").strip()
@@ -150,12 +123,15 @@ jobs:
               print("FATAL: NVIDIA_API_KEY missing!")
               sys.exit(1)
 
+          # Timeout add kiya gaya hai taaki API hang na ho
+          http_client = httpx.Client(timeout=180.0)
+          
           client = OpenAI(
               base_url = "https://integrate.api.nvidia.com/v1",
-              api_key = api_key
+              api_key = api_key,
+              http_client=http_client
           )
           
-          # Sirf aur Sirf DeepSeek Model (26 Sept 2026 Latest)
           model_name = "deepseek-ai/deepseek-v4.1-flash"
 
           all_files = []
@@ -202,12 +178,11 @@ jobs:
                   except Exception as e:
                       error_str = str(e)
                       print(f"   ✗ Connection Failed: {error_str}")
-                      if "429" in error_str or "503" in error_str:
-                          print("   ⏳ Server load. Waiting 15 seconds...")
-                          time.sleep(15)
+                      print("   ⏳ Retrying in 10 seconds...")
+                      time.sleep(10)
               
               if not response_text:
-                  print("FATAL: AI model exhausted API quota. Please check your API key or wait.")
+                  print("FATAL: AI model exhausted API quota or server is not responding.")
                   sys.exit(1)
 
               raw_text = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', response_text.strip())
