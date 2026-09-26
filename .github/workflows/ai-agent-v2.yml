@@ -38,9 +38,35 @@ jobs:
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/menu
           
-          echo "rootProject.name = 'Max Player'" > settings.gradle
-          echo "include ':app'" >> settings.gradle
+          # 1. NEW 2026 STANDARD: Settings.gradle with Google Repositories
+          cat << 'EOF' > settings.gradle
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = 'Max Player'
+          include ':app'
+          EOF
           
+          # 2. ROOT Build.gradle (Defining plugin versions for Gradle 8+)
+          cat << 'EOF' > build.gradle
+          plugins {
+              id 'com.android.application' version '8.2.2' apply false
+              id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
+          }
+          EOF
+          
+          # 3. APP Build.gradle (Java 17 support added)
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -57,10 +83,10 @@ jobs:
                   versionName "1.0"
               }
               compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_1_8
-                  targetCompatibility JavaVersion.VERSION_1_8
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
               }
-              kotlinOptions { jvmTarget = '1.8' }
+              kotlinOptions { jvmTarget = '17' }
           }
           dependencies {
               implementation 'androidx.core:core-ktx:1.12.0'
@@ -70,6 +96,7 @@ jobs:
           }
           EOF
           
+          # 4. ANDROID MANIFEST
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.app.mediaplayer">
@@ -84,6 +111,7 @@ jobs:
           </manifest>
           EOF
           
+          # 5. GRADLE WRAPPER
           if [ ! -f "gradlew" ]; then
             gradle wrapper --gradle-version 8.4
           fi
