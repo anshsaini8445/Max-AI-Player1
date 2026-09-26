@@ -1,4 +1,4 @@
-name: Ultimate Self-Healing AI Agent V3
+name: NVIDIA DeepSeek Self-Healing AI Agent (Deep Research Edition)
 
 on:
   issues:
@@ -96,12 +96,12 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install AI SDK
-        run: pip install --quiet google-genai
+      - name: Install OpenAI SDK (For NVIDIA NIM API)
+        run: pip install --quiet openai
 
-      - name: Run Self-Healing AI
+      - name: Run Self-Healing AI with Deep Research
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
@@ -109,10 +109,9 @@ jobs:
           python - << 'EOF'
           import os, sys, json, re, subprocess, time
           from pathlib import Path
-          from google import genai
-          from google.genai import types
+          from openai import OpenAI
 
-          api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+          api_key = os.environ.get("NVIDIA_API_KEY", "").strip()
           title = os.environ.get("ISSUE_TITLE", "").strip()
           body = os.environ.get("ISSUE_BODY", "") or ""
           issue_no = os.environ.get("ISSUE_NUMBER", "")
@@ -120,15 +119,19 @@ jobs:
           gradlew_path = os.environ.get("GRADLEW_PATH", "./gradlew")
 
           if not api_key:
-              print("FATAL: GEMINI_API_KEY missing!")
+              print("FATAL: NVIDIA_API_KEY missing!")
               sys.exit(1)
 
-          client = genai.Client(api_key=api_key)
+          # NVIDIA API uses the standard OpenAI python client format
+          client = OpenAI(
+              api_key=api_key,
+              base_url="https://integrate.api.nvidia.com/v1"
+          )
           
-          # APKE BATAYE HUE EXACT 2026 KE PREMIUM MODELS
+          # Using the specific DeepSeek model from the NVIDIA endpoint
           best_models = [
-              "gemini-3.8-flash", 
-              "gemini-3.1-pro"
+              "deepseek-ai/deepseek-v4.1-flash", # Note: NVIDIA usually prefixes provider name, fallback below
+              "deepseek-v4.1-flash"
           ]
 
           all_files = []
@@ -140,17 +143,20 @@ jobs:
 
           file_list_str = "\n".join(sorted(all_files)[:150])
 
-          base_prompt = f"""You are an elite autonomous Android engineer.
+          base_prompt = f"""You are an elite autonomous Android engineer equipped with Deep Research capabilities.
           Project Files:
           {file_list_str}
 
           Issue #{issue_no}: {title}
           Details: {body}
 
+          DEEP RESEARCH PROTOCOL:
+          Before generating code, deeply analyze the issue, root causes, and how it impacts the existing Android architecture. 
+          
           RULES:
           1. Return fully compilable Kotlin/XML. Do not use UI IDs that don't exist.
-          2. STRICT JSON format only:
-          {{"summary": "Short info", "files": [{{"filepath": "path/to/File.kt", "content": "FULL_CODE"}}]}}
+          2. STRICT JSON format only. Include your deep research findings in the 'research_log' key:
+          {{"research_log": "Detailed analysis...", "summary": "Short info", "files": [{{"filepath": "path/to/File.kt", "content": "FULL_CODE"}}]}}
           """
 
           current_prompt = base_prompt
@@ -158,34 +164,36 @@ jobs:
 
           for attempt in range(1, 4):
               print(f"\n══════════ AI ATTEMPT {attempt} ══════════")
-              response = None
+              response_text = None
               
               for model_name in best_models:
                   for retry in range(2): 
                       try:
                           print(f"→ Trying {model_name}...")
-                          response = client.models.generate_content(
+                          response = client.chat.completions.create(
                               model=model_name,
-                              contents=current_prompt,
-                              config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.1)
+                              messages=[{"role": "user", "content": current_prompt}],
+                              temperature=0.1,
+                              max_tokens=4096
                           )
-                          if response:
+                          if response.choices:
+                              response_text = response.choices[0].message.content
                               print(f"✅ {model_name} responded successfully!")
                               break
                       except Exception as e:
                           error_str = str(e)
                           print(f"   ✗ {model_name} Failed: {error_str}")
                           if "429" in error_str or "503" in error_str:
-                              print("   ⏳ Server load/quota limit. Waiting 15 seconds...")
+                              print("   ⏳ Rate limit reached. Waiting 15 seconds to let quota recover...")
                               time.sleep(15)
-                  if response:
+                  if response_text:
                       break
               
-              if not response:
-                  print("FATAL: AI models exhausted API quota. Please wait a few hours for Google limits to reset.")
+              if not response_text:
+                  print("FATAL: AI models exhausted API quota or endpoints failed. Please check NVIDIA portal.")
                   sys.exit(1)
 
-              raw_text = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', response.text.strip())
+              raw_text = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', response_text.strip())
               
               try:
                   data = json.loads(raw_text)
@@ -196,6 +204,8 @@ jobs:
               if not data:
                   print("FATAL: Invalid JSON.")
                   sys.exit(1)
+                  
+              print(f"\n🔍 DEEP RESEARCH LOG:\n{data.get('research_log', 'No research log provided.')}\n")
 
               for item in data.get("files", []):
                   fp = item.get("filepath", "").strip().replace("\\", "/")
@@ -223,7 +233,7 @@ jobs:
                   print("❌ BUILD FAILED — self-healing...")
                   error_log = build_process.stderr + build_process.stdout
                   short_error = error_log[-2000:]
-                  current_prompt = base_prompt + f"\n\nCRITICAL FIX NEEDED: Compilation failed. Error log:\n```\n{short_error}\n```\nProvide corrected FULL JSON."
+                  current_prompt = base_prompt + f"\n\nCRITICAL FIX NEEDED: Compilation failed. Deeply research the error log:\n```\n{short_error}\n```\nProvide corrected FULL JSON with updated research."
 
           if not build_success:
               print("❌ FATAL: Self-healing failed after 3 attempts.")
@@ -233,12 +243,12 @@ jobs:
       - name: Save Code to Main Branch
         run: |
           git config --global user.name "AI-Agent[bot]"
-          git config --global user.email "ai-agent@google.com"
+          git config --global user.email "ai-agent@nvidia.com"
           git add -A
           if git diff --staged --quiet; then
             echo "No changes."
           else
-            SUMMARY=$(cat agent_summary.txt 2>/dev/null || echo "AI Magic")
+            SUMMARY=$(cat agent_summary.txt 2>/dev/null || echo "DeepSeek AI Magic")
             git commit -m "Auto-Fix: Issue #${{ github.event.issue.number }} - $SUMMARY"
             git push origin HEAD:main
           fi
@@ -257,7 +267,7 @@ jobs:
           script: |
             const status = '${{ job.status }}';
             const body = status === 'success'
-              ? '✅ **Done!** AI Agent successfully generated and built the APK. Download it from Artifacts.'
+              ? '✅ **Done!** NVIDIA DeepSeek Agent successfully generated and built the APK. Download it from Artifacts.'
               : '❌ **Failed.** AI hit a snag. Check action logs.';
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
