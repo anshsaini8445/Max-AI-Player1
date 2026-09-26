@@ -1,4 +1,4 @@
-name: Ultimate Self-Healing AI Agent V3
+name: Ultimate Self-Healing AI Agent V4
 
 on:
   issues:
@@ -38,7 +38,7 @@ jobs:
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/menu
           
-          echo "rootProject.name = 'MaxAIPlayer'" > settings.gradle
+          echo "rootProject.name = 'Max Player'" > settings.gradle
           echo "include ':app'" >> settings.gradle
           
           cat << 'EOF' > app/build.gradle
@@ -73,7 +73,7 @@ jobs:
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.app.mediaplayer">
-              <application android:allowBackup="true" android:label="Max AI Player" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+              <application android:allowBackup="true" android:label="Max Player" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
@@ -96,12 +96,12 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install AI SDK
-        run: pip install --quiet google-genai
+      - name: Install OpenAI SDK
+        run: pip install --quiet openai
 
-      - name: Run Self-Healing AI
+      - name: Run DeepSeek AI via NVIDIA NIM
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
@@ -109,10 +109,9 @@ jobs:
           python - << 'EOF'
           import os, sys, json, re, subprocess, time
           from pathlib import Path
-          from google import genai
-          from google.genai import types
+          from openai import OpenAI
 
-          api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+          api_key = os.environ.get("NVIDIA_API_KEY", "").strip()
           title = os.environ.get("ISSUE_TITLE", "").strip()
           body = os.environ.get("ISSUE_BODY", "") or ""
           issue_no = os.environ.get("ISSUE_NUMBER", "")
@@ -120,16 +119,16 @@ jobs:
           gradlew_path = os.environ.get("GRADLEW_PATH", "./gradlew")
 
           if not api_key:
-              print("FATAL: GEMINI_API_KEY missing!")
+              print("FATAL: NVIDIA_API_KEY missing!")
               sys.exit(1)
 
-          client = genai.Client(api_key=api_key)
+          client = OpenAI(
+              base_url = "https://integrate.api.nvidia.com/v1",
+              api_key = api_key
+          )
           
-          # APKE BATAYE HUE EXACT 2026 KE PREMIUM MODELS
-          best_models = [
-              "gemini-3.8-flash", 
-              "gemini-3.1-pro"
-          ]
+          # Sirf aur Sirf DeepSeek Model (26 Sept 2026 Latest)
+          model_name = "deepseek-ai/deepseek-v4.1-flash"
 
           all_files = []
           for root, dirs, files in os.walk("."):
@@ -158,42 +157,37 @@ jobs:
 
           for attempt in range(1, 4):
               print(f"\n══════════ AI ATTEMPT {attempt} ══════════")
-              response = None
+              response_text = None
               
-              for model_name in best_models:
-                  for retry in range(2): 
-                      try:
-                          print(f"→ Trying {model_name}...")
-                          response = client.models.generate_content(
-                              model=model_name,
-                              contents=current_prompt,
-                              config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.1)
-                          )
-                          if response:
-                              print(f"✅ {model_name} responded successfully!")
-                              break
-                      except Exception as e:
-                          error_str = str(e)
-                          print(f"   ✗ {model_name} Failed: {error_str}")
-                          if "429" in error_str or "503" in error_str:
-                              print("   ⏳ Server load/quota limit. Waiting 15 seconds...")
-                              time.sleep(15)
-                  if response:
-                      break
+              for retry in range(2): 
+                  try:
+                      print(f"→ Connecting safely to {model_name}...")
+                      completion = client.chat.completions.create(
+                          model=model_name,
+                          messages=[{"role": "user", "content": current_prompt}],
+                          temperature=0.1
+                      )
+                      if completion and completion.choices:
+                          response_text = completion.choices[0].message.content
+                          print(f"✅ {model_name} responded successfully!")
+                          break
+                  except Exception as e:
+                      error_str = str(e)
+                      print(f"   ✗ Connection Failed: {error_str}")
+                      if "429" in error_str or "503" in error_str:
+                          print("   ⏳ Server load. Waiting 15 seconds...")
+                          time.sleep(15)
               
-              if not response:
-                  print("FATAL: AI models exhausted API quota. Please wait a few hours for Google limits to reset.")
+              if not response_text:
+                  print("FATAL: AI model exhausted API quota. Please check your API key or wait.")
                   sys.exit(1)
 
-              raw_text = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', response.text.strip())
+              raw_text = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', response_text.strip())
               
               try:
-                  data = json.loads(raw_text)
-              except:
                   match = re.search(r"\{[\s\S]*\}", raw_text)
-                  data = json.loads(match.group(0)) if match else None
-
-              if not data:
+                  data = json.loads(match.group(0)) if match else json.loads(raw_text)
+              except:
                   print("FATAL: Invalid JSON.")
                   sys.exit(1)
 
@@ -246,7 +240,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AutoDroid-APK
+          name: MaxPlayer-APK
           path: "**/build/outputs/apk/debug/*.apk"
           retention-days: 7
 
